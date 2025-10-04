@@ -1,25 +1,27 @@
 <!doctype html>
 <html>
-    <head>
-        <link
-            rel="stylesheet"
-            href="{{ url_for('static', filename='style.css') }}"
-        />
-    </head>
-    <body>
-        <div class="wrapper">
-            <header>
-                <h1>{{ profile.0 }}</h1>
-                <span class="tagline">{{ profile.1 }}</span>
-            </header>
-            <ul>
-                {% for link in links %}
-                <li style="color: {{ link.color }}">
-                    <a href="{{ link.url }}">{{ link.title }}</a>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-        <!-- .wrapper -->
-    </body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <base target="_blank" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>{{ profile.0 }}</h1>
+        {% if profile.1 %}
+        <span class="tagline">{{ profile.1 }}</span>
+        {% endif %}
+      </header>
+      <ul>
+        {% for link in links %}
+        <li style="color: {{ link.color }}">
+          <a href="{{ link.url }}">{{ link.title }}</a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <!-- .wrapper -->
+  </body>
 </html>
