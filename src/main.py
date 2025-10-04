@@ -1,8 +1,12 @@
-from flask import Flask, render_template
-from urllib import request
+from flask import Flask, render_template, request
+from urllib import request as http_request
 import json
 
 app = Flask(__name__)
+pdss: dict[str, str] = {}
+dids: dict[str, str] = {}
+links: dict[str, list[dict[str, str]]] = {}
+profiles: dict[str, tuple[str, str]] = {}
 
 PLC_DIRECTORY = "https://plc.directory"
 
@@ -17,27 +21,40 @@ def page_profile(handle: str):
     if handle == "favicon.ico":
         return "not found", 404
 
-    did = resolve_did_from_handle(handle)
-    pds = resolve_pds_from_did(did)
-    profile = load_profile(pds, did)
-    links = load_links(pds, did)
+    reload = request.args.get("reload") is not None
+
+    did = resolve_did_from_handle(handle, reload=reload)
+    pds = resolve_pds_from_did(did, reload=reload)
+    profile = load_profile(pds, did, reload=reload)
+    links = load_links(pds, did, reload=reload)
     return render_template("profile.html", profile=profile, links=links)
 
 
-def load_links(pds: str, did: str) -> list[dict[str, str]]:
+def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]]:
+    if did in links and not reload:
+        app.logger.debug(f"returning cached links for {did}")
+        return links[did]
+
     response = get_record(pds, did, "one.nauta.actor.links", "self")
     record = json.loads(response)
-    return record["value"]["links"]
+    link = record["value"]["links"]
+    app.logger.debug(f"caching links for {did}")
+    links[did] = link
+    return link
 
 
-def load_profile(pds: str, did: str) -> tuple[str, str]:
+def load_profile(pds: str, did: str, reload: bool = False) -> tuple[str, str]:
+    if did in profiles and not reload:
+        app.logger.debug(f"returning cached profile for {did}")
+        return profiles[did]
+
     response = get_record(pds, did, "app.bsky.actor.profile", "self")
     record = json.loads(response)
     value: dict[str, str] = record["value"]
-    return (value["displayName"], value["description"])
-
-
-pdss: dict[str, str] = {}
+    profile = (value["displayName"], value["description"])
+    app.logger.debug(f"caching profile for {did}")
+    profiles[did] = profile
+    return profile
 
 
 def resolve_pds_from_did(did: str, reload: bool = False) -> str:
@@ -51,9 +68,6 @@ def resolve_pds_from_did(did: str, reload: bool = False) -> str:
     pdss[did] = pds
     app.logger.debug(f"caching pds {pds} for {did}")
     return pds
-
-
-dids: dict[str, str] = {}
 
 
 def resolve_did_from_handle(handle: str, reload: bool = False) -> str:
@@ -83,4 +97,4 @@ def get_record(pds: str, repo: str, collection: str, record: str) -> str:
 
 
 def http_get(url: str) -> str:
-    return request.urlopen(url).read()
+    return http_request.urlopen(url).read()
