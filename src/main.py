@@ -1,4 +1,8 @@
-from flask import Flask, redirect, render_template, request
+from atproto import Client
+from atproto.exceptions import AtProtocolError
+from atproto_client.models import ComAtprotoRepoCreateRecord
+from atproto_client.models.app.bsky.actor.defs import ProfileViewDetailed
+from flask import Flask, make_response, redirect, render_template, request
 from urllib import request as http_request
 import json
 
@@ -12,12 +16,12 @@ PLC_DIRECTORY = "https://plc.directory"
 SCHEMA = "one.nauta"
 
 
-@app.route("/")
+@app.get("/")
 def page_home():
     return render_template("index.html")
 
 
-@app.route("/<string:handle>")
+@app.get("/<string:handle>")
 def page_profile(handle: str):
     if handle == "favicon.ico":
         return "not found", 404
@@ -40,6 +44,58 @@ def page_profile(handle: str):
         return redirect(request.path)
 
     return render_template("profile.html", profile=profile, links=links)
+
+
+@app.get("/editor")
+def page_editor():
+    session = request.cookies.get("session")
+    if session is None or not session:
+        return redirect("/")
+    client = Client()
+    profile: ProfileViewDetailed | None
+    try:
+        profile = client.login(session_string=session)
+    except AtProtocolError:
+        return redirect("/")
+
+    pds = resolve_pds_from_did(profile.did)
+    if not pds:
+        return "did not found", 404
+    pro = load_profile(pds, profile.did, reload=True)
+    # links = load_links(pds, profile.did, reload=True)
+
+    return render_template("editor.html", profile=pro)
+
+
+@app.post("/editor/profile")
+def post_editor():
+    display_name = request.form.get("displayName")
+    description = request.form.get("description")
+    if not display_name or not description:
+        return redirect("/editor", 303)
+
+    session = request.cookies.get("session")
+    if session is None or not session:
+        return redirect("/", 303)
+    client = Client()
+    profile = client.login(session_string=session)
+
+    data_model = ComAtprotoRepoCreateRecord.Data(
+        collection=f"{SCHEMA}.actor.profile",
+        repo=profile.did,
+        rkey="self",
+        record={
+            "$type": f"{SCHEMA}.actor.profile",
+            "displayName": display_name,
+            "description": description,
+        },
+    )
+    _ = client.invoke_procedure(
+        "com.atproto.repo.putRecord",
+        data=data_model,
+        input_encoding="application/json",
+    )
+    return redirect("/editor", 303)
 
 
 def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]] | None:
@@ -125,3 +181,33 @@ def http_get(url: str) -> str | None:
         return http_request.urlopen(url).read()
     except http_request.HTTPError:
         return None
+
+
+# AUTH
+
+
+@app.route("/auth/logout")
+def auth_logout():
+    r = make_response(redirect("/"))
+    r.delete_cookie("session")
+    return r
+
+
+@app.post("/auth/login")
+def auth_login():
+    handle = request.form.get("handle")
+    password = request.form.get("password")
+    if not handle or not password:
+        return redirect("/")
+    if handle.startswith("@"):
+        handle = handle[1:]
+    session_string: str | None
+    try:
+        client = Client()
+        _ = client.login(handle, password)
+        session_string = client.export_session_string()
+    except AtProtocolError:
+        return redirect("/", 303)
+    r = make_response(redirect("/editor", code=303))
+    r.set_cookie("session", session_string)
+    return r
