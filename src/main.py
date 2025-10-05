@@ -13,8 +13,8 @@ SCHEMA = "one.nauta"
 
 
 @app.route("/")
-def hello_world():
-    return "<3"
+def page_home():
+    return render_template("index.html")
 
 
 @app.route("/<string:handle>")
