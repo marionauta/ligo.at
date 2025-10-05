@@ -62,27 +62,33 @@ def page_editor():
     if not pds:
         return "did not found", 404
     pro = load_profile(pds, profile.did, reload=True)
-    # links = load_links(pds, profile.did, reload=True)
+    links = load_links(pds, profile.did, reload=True) or [{}]
 
-    return render_template("editor.html", profile=pro)
+    return render_template(
+        "editor.html",
+        handle=profile.handle,
+        profile=pro,
+        links=links,
+    )
 
 
 @app.post("/editor/profile")
-def post_editor():
-    display_name = request.form.get("displayName")
-    description = request.form.get("description")
-    if not display_name or not description:
-        return redirect("/editor", 303)
-
+def post_editor_profile():
     session = request.cookies.get("session")
     if session is None or not session:
         return redirect("/", 303)
     client = Client()
     profile = client.login(session_string=session)
 
-    data_model = ComAtprotoRepoCreateRecord.Data(
-        collection=f"{SCHEMA}.actor.profile",
+    display_name = request.form.get("displayName")
+    description = request.form.get("description") or ""
+    if not display_name:
+        return redirect("/editor", 303)
+
+    put_record(
+        client=client,
         repo=profile.did,
+        collection=f"{SCHEMA}.actor.profile",
         rkey="self",
         record={
             "$type": f"{SCHEMA}.actor.profile",
@@ -90,11 +96,46 @@ def post_editor():
             "description": description,
         },
     )
-    _ = client.invoke_procedure(
-        "com.atproto.repo.putRecord",
-        data=data_model,
-        input_encoding="application/json",
+
+    return redirect("/editor", 303)
+
+
+@app.post("/editor/links")
+def post_editor_links():
+    session = request.cookies.get("session")
+    if session is None or not session:
+        return redirect("/", 303)
+    client = Client()
+    profile = client.login(session_string=session)
+
+    links: list[dict[str, str]] = []
+    for i in range(0, 100):
+        url = request.form.get(f"link{i}-url")
+        title = request.form.get(f"link{i}-title")
+        detail = request.form.get(f"link{i}-detail")
+        color = request.form.get(f"link{i}-color")
+        if not url or not title or not color:
+            break
+        link: dict[str, str] = {
+            "url": url,
+            "title": title,
+            "color": color,
+        }
+        if detail:
+            link["detail"] = detail
+        links.append(link)
+
+    put_record(
+        client=client,
+        repo=profile.did,
+        collection=f"{SCHEMA}.actor.links",
+        rkey="self",
+        record={
+            "$type": f"{SCHEMA}.actor.links",
+            "links": links,
+        },
     )
+
     return redirect("/editor", 303)
 
 
@@ -174,6 +215,20 @@ def get_record(pds: str, repo: str, collection: str, record: str) -> str | None:
         f"{pds}/xrpc/com.atproto.repo.getRecord?repo={repo}&collection={collection}&rkey={record}"
     )
     return response
+
+
+def put_record(client: Client, repo: str, collection: str, rkey: str, record):
+    data_model = ComAtprotoRepoCreateRecord.Data(
+        collection=collection,
+        repo=repo,
+        rkey=rkey,
+        record=record,
+    )
+    _ = client.invoke_procedure(
+        "com.atproto.repo.putRecord",
+        data=data_model,
+        input_encoding="application/json",
+    )
 
 
 def http_get(url: str) -> str | None:

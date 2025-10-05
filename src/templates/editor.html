@@ -6,6 +6,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
+    <p>
+      <a href="/{{ handle }}">see profile</a>
+    </p>
+
     profile
     <form action="/editor/profile" method="post">
       <input type="text" name="displayName" value="{{ profile.0 }}" required />
@@ -13,6 +17,21 @@
       <button type="submit">save!</button>
     </form>
 
-    <a href="/auth/logout">logout</a>
+    links
+    <form action="/editor/links" method="post">
+      {% for link in links %}
+      <div>
+        <input type="text" name="link{{ loop.index0 }}-url" value="{{ link.url }}" required />
+        <input type="text" name="link{{ loop.index0 }}-title" value="{{ link.title }}" required />
+        <input type="text" name="link{{ loop.index0 }}-detail" value="{{ link.detail }}" />
+        <input type="color" name="link{{ loop.index0 }}-color" value="{{ link.color }}" required />
+      </div>
+      {% endfor %}
+      <button type="submit">save!</button>
+    </form>
+
+    <p>
+      <a href="/auth/logout">logout</a>
+    </p>
   </body>
 </html>
