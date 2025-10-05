@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, redirect, render_template, request
 from urllib import request as http_request
 import json
 
@@ -31,7 +31,14 @@ def page_profile(handle: str):
     if pds is None:
         return "pds not found", 404
     profile = load_profile(pds, did, reload=reload)
-    links = load_links(pds, did, reload=reload) or []
+    links = load_links(pds, did, reload=reload)
+    if links is None:
+        return "profile not found", 404
+
+    if reload:
+        # remove the ?reload parameter
+        return redirect(request.path)
+
     return render_template("profile.html", profile=profile, links=links)
 
 

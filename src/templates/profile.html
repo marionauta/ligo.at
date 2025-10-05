@@ -2,8 +2,10 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <title>{{ profile.0 }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <base target="_blank" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
@@ -17,7 +19,12 @@
       <ul>
         {% for link in links %}
         <li style="color: {{ link.color }}">
-          <a href="{{ link.url }}">{{ link.title }}</a>
+          <a href="{{ link.url }}">
+            {{ link.title }}
+            {% if link.detail %}
+            <span class="detail">{{ link.detail }}</span>
+            {% endif %}
+          </a>
         </li>
         {% endfor %}
       </ul>

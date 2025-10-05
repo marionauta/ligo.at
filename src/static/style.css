@@ -1,9 +1,20 @@
+html {
+    font-feature-settings:
+        "kern" 1,
+        "liga" 1,
+        "cv05" 1,
+        "tnum" 1;
+}
+
 body {
     background: #fff;
     color: #333;
-    font-size: 20px;
-    font-family: monospace;
-    font-weight: 450;
+    font-size: 18px;
+    line-height: 20px;
+    font-family: "Inter", system-ui, sans-serif, ui-sans-serif;
+    font-variation-settings: normal;
+    font-weight: 400;
+    font-optical-sizing: auto;
     margin: 1rem;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -39,6 +50,8 @@ header h1 {
 
 header .tagline {
     font-style: italic;
+    display: inline-block;
+    margin-top: 0.5em;
 }
 
 ul {
