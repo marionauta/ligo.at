@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>login &mdash; atlinks</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="wrapper login">
+      <header>
+        <h1>atlinks</h1>
+        <span class="tagline">log in to your account</span>
+      </header>
+      <form action="/auth/login" method="post">
+        <label>
+          <span>handle</span>
+          <input type="text" name="handle" required />
+        </label>
+        <label>
+          <span>app password</span>
+          <input type="password" name="password" required />
+        </label>
+        <label>
+          <input type="submit" value="log in" />
+        </label>
+      </form>
+      <footer>
+        <a href="/">home</a>
+      </footer>
+    </div>
+    <!-- .wrapper -->
+  </body>
+</html>

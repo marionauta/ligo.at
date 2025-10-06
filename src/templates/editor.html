@@ -2,36 +2,104 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <title>edit your profile &mdash; atlinks</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script defer src="{{ url_for('static', filename='alpine.3.15.0.min.js') }}"></script>
   </head>
   <body>
-    <p>
-      <a href="/{{ handle }}">see profile</a>
-    </p>
+    <div class="wrapper editor" x-data="{ links: {{ links }} }">
+      <header>
+        <h1>atlinks</h1>
+        <span class="tagline">edit your profile & links</span>
+      </header>
 
-    profile
-    <form action="/editor/profile" method="post">
-      <input type="text" name="displayName" value="{{ profile.0 }}" required />
-      <input type="text" name="description" value="{{ profile.1 }}" />
-      <button type="submit">save!</button>
-    </form>
+      <p>
+        <a href="/@{{ handle }}">see profile</a>
+        <span>·</span>
+        <a href="/auth/logout">logout</a>
+      </p>
 
-    links
-    <form action="/editor/links" method="post">
-      {% for link in links %}
-      <div>
-        <input type="text" name="link{{ loop.index0 }}-url" value="{{ link.url }}" required />
-        <input type="text" name="link{{ loop.index0 }}-title" value="{{ link.title }}" required />
-        <input type="text" name="link{{ loop.index0 }}-detail" value="{{ link.detail }}" />
-        <input type="color" name="link{{ loop.index0 }}-color" value="{{ link.color }}" required />
-      </div>
-      {% endfor %}
-      <button type="submit">save!</button>
-    </form>
+      <h2>profile</h2>
+      <form action="/editor/profile" method="post">
+        <label>
+          <span>Display name</span>
+          <input type="text" name="displayName" value="{{ profile.0 }}" required />
+        </label>
+        <label>
+          <span>Description</span>
+          <input type="text" name="description" value="{{ profile.1 }}" />
+        </label>
+        {% if profile_from_bluesky %}
+        <p>
+          <span class="caption">Profile was fetched from Bluesky. On save it will use an independent, atlinks only copy.</span>
+        </p>
+        {% endif %}
+        <label>
+          <input type="submit" value="save profile">
+        </label>
+      </form>
 
-    <p>
-      <a href="/auth/logout">logout</a>
-    </p>
+      <h2>links</h2>
+      <noscript>
+        JavaScript is needed for a better experience configuring the links.
+      </noscript>
+      <form action="/editor/links" method="post">
+        <input type="submit" value="save links" />
+
+        <template x-for="(link, index) in links" :key="link.url">
+          <link-editor-item x-data="{ editing: false }">
+            <div x-show="!editing">
+
+              <link-item class="static" :style="'color: ' + link.color">
+                <link-item-title x-text="link.title"></link-item-title>
+                <span class="detail" x-show="link.detail" x-text="link.detail"></span>
+              </link-item>
+
+              <link-editor-buttons>
+                <button type="button" @click="editing = true">edit</button>
+                <button type="button" @click="links.splice(index, 1)">delete</button>
+              </link-editor-buttons>
+              <link-editor-buttons>
+                <template x-if="index > 0">
+                  <button type="button" @click="links.splice(index - 1, 0, links.splice(index, 1)[0])">
+                    move up
+                  </button>
+                </template>
+                <template x-if="(index + 1) < links.length">
+                  <button type="button" @click="links.splice(index + 1, 0, links.splice(index, 1)[0])">
+                    move down
+                  </button>
+                </template>
+              </link-editor-buttons>
+            </div>
+            <div x-show="editing">
+              <label>
+                <span>URL</span>
+                <input type="text" :name="'link' + index + '-url'" x-model="link.url" required />
+              </label>
+              <label>
+                <span>Title</span>
+                <input type="text" :name="'link' + index + '-title'" x-model="link.title" required />
+              </label>
+              <label>
+                <span>Subtitle</span>
+                <input type="text" x-bind:name="'link' + index + '-detail'" x-model="link.detail" />
+              </label>
+              <label>
+                <span>Color</span>
+                <input type="color" x-bind:name="'link' + index + '-color'" x-model="link.color" required />
+              </label>
+              <button type="button" @click="editing = false">ok</button>
+            </div>
+          </link-editor-item>
+        </template>
+        <label>
+          <input type="submit" value="save links" />
+        </label>
+      </form>
+    </div>
+    <!-- .wrapper -->
   </body>
 </html>

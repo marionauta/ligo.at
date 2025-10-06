@@ -1,5 +1,8 @@
 :root {
     --color-background: #fff;
+    --color-background-secondary: #eee;
+    --color-border: #bbb;
+    --color-border-secondary: #ddd;
     --color-text: #333;
     --color-text-secondary: #aaa;
 }
@@ -7,6 +10,9 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --color-background: #111;
+        --color-background-secondary: #333;
+        --color-border: #555;
+        --color-border-secondary: #333;
         --color-text: #fff;
     }
 }
@@ -64,21 +70,31 @@ ul {
     padding: 0;
 }
 
-li {
+link-item {
+    display: block;
     background: currentColor;
     transition: transform 0.1s;
     text-align: center;
+    padding: 0.5em;
+}
+
+link-item:not(.static) {
     box-shadow: -3px 3px 0 rgba(from currentColor r g b / 0.6);
 }
 
-li .detail {
+link-item-title {
+    color: white;
+}
+
+link-item .detail {
+    color: white;
     display: block;
     font-size: 0.75em;
     opacity: 0.6;
     transition: opacity 0.3s;
 }
 
-li:hover {
+link-item:not(.static):hover {
     transform: scale(1.05);
 
     & .detail {
@@ -86,15 +102,49 @@ li:hover {
     }
 }
 
-li + li {
+li:has(link-item) + li:has(link-item) {
     margin-top: 1rem;
 }
 
 li a {
-    color: white;
+    color: inherit;
     display: block;
-    padding: 1rem;
     text-decoration: none;
+}
+
+.caption {
+    font-size: 14px;
+    line-height: 12px;
+    color: var(--color-text-secondary);
+}
+
+button,
+input {
+    background: var(--color-background-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 2px;
+    box-sizing: border-box;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 14px;
+    padding: 0.25em;
+    width: 100%;
+}
+
+label:has(input) {
+    display: block;
+    margin-top: 0.5em;
+}
+
+label:has(input):has(span) input {
+    display: block;
+    margin-top: 4px;
+}
+
+label:has(input):has(span) span {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
 }
 
 footer {
@@ -102,4 +152,21 @@ footer {
     font-size: 14px;
     margin-top: 5em;
     text-align: center;
+}
+
+link-editor-item {
+    display: block;
+    margin-top: 1em;
+    margin-left: -0.5em;
+    margin-right: -0.5em;
+    padding: 0.5em;
+    border: 1px solid var(--color-border-secondary);
+    border-radius: 2px;
+}
+
+link-editor-buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 0.25em;
+    margin-top: 0.25em;
 }

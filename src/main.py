@@ -21,11 +21,8 @@ def page_home():
     return render_template("index.html")
 
 
-@app.get("/<string:handle>")
+@app.get("/@<string:handle>")
 def page_profile(handle: str):
-    if handle == "favicon.ico":
-        return "not found", 404
-
     reload = request.args.get("reload") is not None
 
     did = resolve_did_from_handle(handle, reload=reload)
@@ -34,7 +31,7 @@ def page_profile(handle: str):
     pds = resolve_pds_from_did(did, reload=reload)
     if pds is None:
         return "pds not found", 404
-    profile = load_profile(pds, did, reload=reload)
+    profile, _ = load_profile(pds, did, reload=reload)
     links = load_links(pds, did, reload=reload)
     if links is None:
         return "profile not found", 404
@@ -46,29 +43,39 @@ def page_profile(handle: str):
     return render_template("profile.html", profile=profile, links=links)
 
 
+@app.get("/login")
+def page_login():
+    if "session" in request.cookies:
+        return redirect("/editor")
+    return render_template("login.html")
+
+
 @app.get("/editor")
 def page_editor():
     session = request.cookies.get("session")
     if session is None or not session:
-        return redirect("/")
+        return redirect("/login")
     client = Client()
     profile: ProfileViewDetailed | None
     try:
         profile = client.login(session_string=session)
     except AtProtocolError:
-        return redirect("/")
+        r = make_response(redirect("/login", 303))
+        r.delete_cookie("session")
+        return r
 
     pds = resolve_pds_from_did(profile.did)
     if not pds:
         return "did not found", 404
-    pro = load_profile(pds, profile.did, reload=True)
-    links = load_links(pds, profile.did, reload=True) or [{}]
+    pro, from_bluesky = load_profile(pds, profile.did, reload=True)  # DONT COMMIT
+    links = load_links(pds, profile.did, reload=True) or [{}]  # DONT COMMIT
 
     return render_template(
         "editor.html",
         handle=profile.handle,
         profile=pro,
-        links=links,
+        profile_from_bluesky=from_bluesky,
+        links=json.dumps(links),
     )
 
 
@@ -76,7 +83,7 @@ def page_editor():
 def post_editor_profile():
     session = request.cookies.get("session")
     if session is None or not session:
-        return redirect("/", 303)
+        return redirect("/login", 303)
     client = Client()
     profile = client.login(session_string=session)
 
@@ -104,7 +111,7 @@ def post_editor_profile():
 def post_editor_links():
     session = request.cookies.get("session")
     if session is None or not session:
-        return redirect("/", 303)
+        return redirect("/login", 303)
     client = Client()
     profile = client.login(session_string=session)
 
@@ -124,6 +131,8 @@ def post_editor_links():
         if detail:
             link["detail"] = detail
         links.append(link)
+
+    app.logger.warning(links)
 
     put_record(
         client=client,
@@ -155,23 +164,27 @@ def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]]
     return link
 
 
-def load_profile(pds: str, did: str, reload: bool = False) -> tuple[str, str] | None:
+def load_profile(
+    pds: str, did: str, reload: bool = False
+) -> tuple[tuple[str, str] | None, bool]:
     if did in profiles and not reload:
         app.logger.debug(f"returning cached profile for {did}")
-        return profiles[did]
+        return profiles[did], False
 
+    from_bluesky = False
     response = get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
     if response is None:
         response = get_record(pds, did, "app.bsky.actor.profile", "self")
+        from_bluesky = True
     if response is None:
-        return None
+        return None, False
 
     record = json.loads(response)
     value: dict[str, str] = record["value"]
     profile = (value["displayName"], value["description"])
     app.logger.debug(f"caching profile for {did}")
     profiles[did] = profile
-    return profile
+    return profile, from_bluesky
 
 
 def resolve_pds_from_did(did: str, reload: bool = False) -> str | None:
@@ -253,7 +266,7 @@ def auth_login():
     handle = request.form.get("handle")
     password = request.form.get("password")
     if not handle or not password:
-        return redirect("/")
+        return redirect("/login", 303)
     if handle.startswith("@"):
         handle = handle[1:]
     session_string: str | None
@@ -262,7 +275,7 @@ def auth_login():
         _ = client.login(handle, password)
         session_string = client.export_session_string()
     except AtProtocolError:
-        return redirect("/", 303)
+        return redirect("/login", 303)
     r = make_response(redirect("/editor", code=303))
     r.set_cookie("session", session_string)
     return r

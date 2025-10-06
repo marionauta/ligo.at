@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body>
-    <div class="wrapper">
+    <div class="wrapper home">
       <header>
         <h1>atlinks</h1>
         <span class="tagline">name pending</span>
@@ -20,15 +20,8 @@
       <p>
         Coming soon!
       </p>
-
-      <form action="/auth/login" method="post">
-        <input type="text" name="handle" placeholder="handle" required />
-        <input type="password" name="password" placeholder="app password" required />
-        <button type="submit">log in</button>
-      </form>
-
       <footer>
-        Made by <a href="/nauta.one">@nauta.one</a>
+        Made by <a href="/@nauta.one">@nauta.one</a>
       </footer>
     </div>
   </body>
