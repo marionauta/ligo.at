@@ -67,8 +67,8 @@ def page_editor():
     pds = resolve_pds_from_did(profile.did)
     if not pds:
         return "did not found", 404
-    pro, from_bluesky = load_profile(pds, profile.did, reload=True)  # DONT COMMIT
-    links = load_links(pds, profile.did, reload=True) or [{}]  # DONT COMMIT
+    pro, from_bluesky = load_profile(pds, profile.did, reload=True)
+    links = load_links(pds, profile.did, reload=True) or [{"background": "#fa0"}]
 
     return render_template(
         "editor.html",
@@ -116,23 +116,22 @@ def post_editor_links():
     profile = client.login(session_string=session)
 
     links: list[dict[str, str]] = []
-    for i in range(0, 100):
-        url = request.form.get(f"link{i}-url")
-        title = request.form.get(f"link{i}-title")
-        detail = request.form.get(f"link{i}-detail")
-        color = request.form.get(f"link{i}-color")
-        if not url or not title or not color:
+    urls = request.form.getlist("link-url")
+    titles = request.form.getlist("link-title")
+    details = request.form.getlist("link-detail")
+    backgrounds = request.form.getlist("link-background")
+    for url, title, detail, background in zip(urls, titles, details, backgrounds):
+        if not url or not title or not background:
             break
         link: dict[str, str] = {
             "url": url,
             "title": title,
-            "color": color,
+            "color": background,
+            "background": background,
         }
         if detail:
             link["detail"] = detail
         links.append(link)
-
-    app.logger.warning(links)
 
     put_record(
         client=client,
@@ -158,10 +157,10 @@ def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]]
         return None
 
     record = json.loads(response)
-    link = record["value"]["links"]
+    links_ = record["value"]["links"]
     app.logger.debug(f"caching links for {did}")
-    links[did] = link
-    return link
+    links[did] = links_
+    return links_
 
 
 def load_profile(

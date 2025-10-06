@@ -18,12 +18,12 @@
       </header>
       <ul>
         {% for link in links %}
-        <li style="color: {{ link.color }}">
+        <li style="color: {{ link.background }}">
           <a href="{{ link.url }}">
             <link-item>
               <link-item-title>{{ link.title }}</link-item-title>
               {% if link.detail %}
-              <span class="detail">{{ link.detail }}</span>
+              <link-item-detail>{{ link.detail }}</link-item-detail>
               {% endif %}
             </link-item>
           </a>

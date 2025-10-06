@@ -6,10 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <script defer src="{{ url_for('static', filename='alpine.sort.3.15.0.min.js') }}"></script>
     <script defer src="{{ url_for('static', filename='alpine.3.15.0.min.js') }}"></script>
   </head>
   <body>
-    <div class="wrapper editor" x-data="{ links: {{ links }} }">
+    <div class="wrapper editor" x-data="{ links: {{ links }}, linksChanged: false }">
       <header>
         <h1>atlinks</h1>
         <span class="tagline">edit your profile & links</span>
@@ -40,65 +41,67 @@
           <input type="submit" value="save profile">
         </label>
       </form>
+      <!-- /editor/profile -->
 
       <h2>links</h2>
+      <template x-if="linksChanged">
+        <p>
+          <span class="alert">You have unsaved changes!</span>
+        </p>
+      </template>
       <noscript>
         JavaScript is needed for a better experience configuring the links.
       </noscript>
-      <form action="/editor/links" method="post">
+      <form action="/editor/links" method="post" @change="linksChanged = true" x-sort>
         <input type="submit" value="save links" />
 
-        <template x-for="(link, index) in links" :key="link.url">
-          <link-editor-item x-data="{ editing: false }">
+        <template x-for="(link, index) in links">
+          <link-editor-item x-data="{ editing: !link.url }" x-sort:item="link.url">
             <div x-show="!editing">
-
-              <link-item class="static" :style="'color: ' + link.color">
+              <link-item x-sort:handle class="static" :style="'color: ' + link.background">
                 <link-item-title x-text="link.title"></link-item-title>
-                <span class="detail" x-show="link.detail" x-text="link.detail"></span>
+                <link-item-detail x-show="link.detail" x-text="link.detail"></link-item-detail>
               </link-item>
-
               <link-editor-buttons>
                 <button type="button" @click="editing = true">edit</button>
-                <button type="button" @click="links.splice(index, 1)">delete</button>
-              </link-editor-buttons>
-              <link-editor-buttons>
-                <template x-if="index > 0">
-                  <button type="button" @click="links.splice(index - 1, 0, links.splice(index, 1)[0])">
-                    move up
-                  </button>
-                </template>
-                <template x-if="(index + 1) < links.length">
-                  <button type="button" @click="links.splice(index + 1, 0, links.splice(index, 1)[0])">
-                    move down
-                  </button>
-                </template>
+                <button type="button" @click="if (confirm('delete?')) links.splice(index, 1)">delete</button>
               </link-editor-buttons>
             </div>
             <div x-show="editing">
               <label>
                 <span>URL</span>
-                <input type="text" :name="'link' + index + '-url'" x-model="link.url" required />
+                <input type="text" name="link-url" x-model="link.url" required />
               </label>
               <label>
                 <span>Title</span>
-                <input type="text" :name="'link' + index + '-title'" x-model="link.title" required />
+                <input type="text" name="link-title" x-model="link.title" required />
               </label>
               <label>
                 <span>Subtitle</span>
-                <input type="text" x-bind:name="'link' + index + '-detail'" x-model="link.detail" />
+                <input type="text" name="link-detail" x-model="link.detail" />
               </label>
               <label>
-                <span>Color</span>
-                <input type="color" x-bind:name="'link' + index + '-color'" x-model="link.color" required />
+                <span>Background color</span>
+                <input type="color" name="link-background" x-model="link.background" required />
               </label>
               <button type="button" @click="editing = false">ok</button>
             </div>
           </link-editor-item>
         </template>
-        <label>
-          <input type="submit" value="save links" />
+
+        <label style="display: block; margin-top: 1em;">
+          <button type="button" @click="links.push({ background: '#fa0' })">add link</button>
+          <span class="caption">
+            It will be added to the bottom. You can then drag and drop it to reorder.
+          </span>
         </label>
+
+        <input type="submit" value="save links" />
       </form>
+      <!-- /editor/links -->
+      <footer>
+        <a href="/">home</a>
+      </footer>
     </div>
     <!-- .wrapper -->
   </body>
