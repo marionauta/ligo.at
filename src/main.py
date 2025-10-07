@@ -2,11 +2,13 @@ from atproto import Client
 from atproto.exceptions import AtProtocolError
 from atproto_client.models import ComAtprotoRepoCreateRecord
 from atproto_client.models.app.bsky.actor.defs import ProfileViewDetailed
-from flask import Flask, make_response, redirect, render_template, request
+from flask import Flask, session, redirect, render_template, request
 from urllib import request as http_request
 import json
 
 app = Flask(__name__)
+_ = app.config.from_prefixed_env()
+
 pdss: dict[str, str] = {}
 dids: dict[str, str] = {}
 links: dict[str, list[dict[str, str]]] = {}
@@ -45,24 +47,23 @@ def page_profile(handle: str):
 
 @app.get("/login")
 def page_login():
-    if "session" in request.cookies:
+    if "session" in session:
         return redirect("/editor")
     return render_template("login.html")
 
 
 @app.get("/editor")
 def page_editor():
-    session = request.cookies.get("session")
-    if session is None or not session:
+    sess: str | None = session.get("session")
+    if sess is None or not sess:
         return redirect("/login")
     client = Client()
     profile: ProfileViewDetailed | None
     try:
-        profile = client.login(session_string=session)
+        profile = client.login(session_string=sess)
     except AtProtocolError:
-        r = make_response(redirect("/login", 303))
-        r.delete_cookie("session")
-        return r
+        session.clear()
+        return redirect("/login", 303)
 
     pds = resolve_pds_from_did(profile.did)
     if not pds:
@@ -81,11 +82,11 @@ def page_editor():
 
 @app.post("/editor/profile")
 def post_editor_profile():
-    session = request.cookies.get("session")
-    if session is None or not session:
+    sess: str | None = session.get("session")
+    if sess is None or not sess:
         return redirect("/login", 303)
     client = Client()
-    profile = client.login(session_string=session)
+    profile = client.login(session_string=sess)
 
     display_name = request.form.get("displayName")
     description = request.form.get("description") or ""
@@ -109,11 +110,11 @@ def post_editor_profile():
 
 @app.post("/editor/links")
 def post_editor_links():
-    session = request.cookies.get("session")
-    if session is None or not session:
+    sess: str | None = session.get("session")
+    if sess is None or not sess:
         return redirect("/login", 303)
     client = Client()
-    profile = client.login(session_string=session)
+    profile = client.login(session_string=sess)
 
     links: list[dict[str, str]] = []
     urls = request.form.getlist("link-url")
@@ -255,9 +256,8 @@ def http_get(url: str) -> str | None:
 
 @app.route("/auth/logout")
 def auth_logout():
-    r = make_response(redirect("/"))
-    r.delete_cookie("session")
-    return r
+    session.clear()
+    return redirect("/")
 
 
 @app.post("/auth/login")
@@ -275,6 +275,5 @@ def auth_login():
         session_string = client.export_session_string()
     except AtProtocolError:
         return redirect("/login", 303)
-    r = make_response(redirect("/editor", code=303))
-    r.set_cookie("session", session_string)
-    return r
+    session["session"] = session_string
+    return redirect("/editor", code=303)
