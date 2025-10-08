@@ -2,10 +2,11 @@ from flask import Flask, g, session, redirect, render_template, request, url_for
 from typing import Any
 import json
 
-from .atproto2 import PdsUrl, get_record, resolve_did_from_handle, resolve_pds_from_did
-from .atproto2.atproto_oauth import pds_authed_req
+from .atproto import PdsUrl, get_record, resolve_did_from_handle, resolve_pds_from_did
+from .atproto.atproto_oauth import pds_authed_req
 from .db import close_db_connection, get_db, init_db
 from .oauth import oauth
+from .types import OAuthSession
 
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
@@ -20,18 +21,19 @@ SCHEMA = "one.nauta"
 
 @app.before_request
 def load_user_to_context():
+    user: OAuthSession | None = None
     did: str | None = session.get("user_did")
-    if did is None:
-        g.user = None
-    else:
+    if did is not None:
         db = get_db(app)
-        g.user = db.execute(
+        row = db.execute(
             "select * from oauth_session where did = ?",
             (did,),
         ).fetchone()
+        user = OAuthSession(**row)
+    g.user = user
 
 
-def get_user() -> dict[str, str] | None:
+def get_user() -> OAuthSession | None:
     return g.user
 
 
@@ -90,9 +92,9 @@ def page_editor():
     if user is None:
         return redirect("/login")
 
-    did: str = user["did"]
-    pds: str = user["pds_url"]
-    handle: str | None = user["handle"]
+    did: str = user.did
+    pds: str = user.pds_url
+    handle: str | None = user.handle
 
     profile, from_bluesky = load_profile(pds, did, reload=True)
     links = load_links(pds, did, reload=True) or [{"background": "#fa0"}]
@@ -119,8 +121,8 @@ def post_editor_profile():
 
     put_record(
         user=user,
-        pds=user["pds_url"],
-        repo=user["did"],
+        pds=user.pds_url,
+        repo=user.did,
         collection=f"{SCHEMA}.actor.profile",
         rkey="self",
         record={
@@ -159,8 +161,8 @@ def post_editor_links():
 
     put_record(
         user=user,
-        pds=user["pds_url"],
-        repo=user["did"],
+        pds=user.pds_url,
+        repo=user.did,
         collection=f"{SCHEMA}.actor.links",
         rkey="self",
         record={
@@ -212,7 +214,7 @@ def load_profile(
 
 
 def put_record(
-    user: dict[str, str],
+    user: OAuthSession,
     pds: PdsUrl,
     repo: str,
     collection: str,
@@ -246,7 +248,7 @@ def auth_logout():
     if user is not None:
         db = get_db(app)
         cursor = db.cursor()
-        _ = cursor.execute("delete from oauth_session where did = ?", (user["did"],))
+        _ = cursor.execute("delete from oauth_session where did = ?", (user.did,))
         db.commit()
         cursor.close()
     session.clear()

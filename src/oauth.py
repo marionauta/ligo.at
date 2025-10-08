@@ -4,21 +4,19 @@ from urllib.parse import urlencode
 
 import json
 
-from .atproto2.atproto_identity import is_valid_did, is_valid_handle
-from .atproto2.atproto_oauth import initial_token_request, send_par_auth_request
-from .atproto2.atproto_security import is_safe_url
-from .atproto2 import (
+from .atproto.atproto_identity import is_valid_did, is_valid_handle
+from .atproto.atproto_oauth import initial_token_request, send_par_auth_request
+from .atproto.atproto_security import is_safe_url
+from .atproto import (
     pds_endpoint_from_doc,
     resolve_authserver_from_pds,
     resolve_authserver_meta,
     resolve_identity,
 )
+from .types import OAuthAuthRequest
 from .db import get_db
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
-
-
-oauth_auth_requests: dict[str, dict[str, str]] = {}
 
 
 @oauth.get("/start")
@@ -87,16 +85,25 @@ def oauth_start():
 
     par_request_uri: str = resp.json()["request_uri"]
     current_app.logger.debug(f"saving oauth_auth_request to DB  state={state}")
-    oauth_auth_requests[state] = {
-        "authserver_iss": authserver_meta["issuer"],
-        "did": did or "",  # TODO: use actual typing
-        "handle": handle or "",
-        "pds_url": pds_url or "",
-        "pkce_verifier": pkce_verifier,
-        "scope": scope,
-        "dpop_authserver_nonce": dpop_authserver_nonce,
-        "dpop_private_jwk": dpop_private_jwk.as_json(is_private=True),
-    }
+
+    db = get_db(current_app)
+    cursor = db.cursor()
+    _ = cursor.execute(
+        "insert or replace into oauth_auth_requests values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            state,
+            authserver_meta["issuer"],
+            did,
+            handle,
+            pds_url,
+            pkce_verifier,
+            scope,
+            dpop_authserver_nonce,
+            dpop_private_jwk.as_json(is_private=True),
+        ),
+    )
+    db.commit()
+    cursor.close()
 
     auth_endpoint = authserver_meta["authorization_endpoint"]
     assert is_safe_url(auth_endpoint)
@@ -110,15 +117,23 @@ def oauth_callback():
     authserver_iss = request.args["iss"]
     authorization_code = request.args["code"]
 
-    auth_request = oauth_auth_requests.get(state)
-    if auth_request is None:
+    db = get_db(current_app)
+    cursor = db.cursor()
+
+    row = cursor.execute(
+        "select * from oauth_auth_requests where state = ?", (state,)
+    ).fetchone()
+    try:
+        auth_request = OAuthAuthRequest(**row)
+    except TypeError:
         return redirect(url_for("page_login"), 303)
 
     current_app.logger.debug(f"Deleting auth request for state={state}")
-    _ = oauth_auth_requests.pop(state)
+    _ = cursor.execute("delete from oauth_auth_requests where state = ?", (state,))
+    db.commit()
 
-    assert auth_request["authserver_iss"] == authserver_iss
-    # assert state ????
+    assert auth_request.authserver_iss == authserver_iss
+    assert auth_request.state == state
 
     app_url = request.url_root.replace("http://", "https://")
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
@@ -131,10 +146,10 @@ def oauth_callback():
 
     row = auth_request
 
-    did = auth_request["did"]
-    if row["did"]:
+    did = auth_request.did
+    if row.did:
         # If we started with an account identifier, this is simple
-        did, handle, pds_url = row["did"], row["handle"], row["pds_url"]
+        did, handle, pds_url = row.did, row.handle, row.pds_url
         assert tokens["sub"] == did
     else:
         did = tokens["sub"]
@@ -149,7 +164,7 @@ def oauth_callback():
         authserver_url = resolve_authserver_from_pds(pds_url)
         assert authserver_url == authserver_iss
 
-    assert row["scope"] == tokens["scope"]
+    assert row.scope == tokens["scope"]
 
     current_app.logger.debug("storing user did and handle")
     db = get_db(current_app)
@@ -165,14 +180,14 @@ def oauth_callback():
             tokens["refresh_token"],
             dpop_authserver_nonce,
             None,
-            auth_request["dpop_private_jwk"],
+            auth_request.dpop_private_jwk,
         ),
     )
     db.commit()
     cursor.close()
 
     session["user_did"] = did
-    session["user_handle"] = auth_request["handle"]
+    session["user_handle"] = auth_request.handle
 
     return redirect(url_for("page_login"))
 

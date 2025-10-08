@@ -9,6 +9,8 @@ from authlib.jose import jwt
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from requests import Response
 
+from ..types import OAuthAuthRequest, OAuthSession
+
 from .atproto_security import is_safe_url, hardened_http
 
 
@@ -195,12 +197,12 @@ def send_par_auth_request(
 # Completes the auth flow by sending an initial auth token request.
 # Returns token response (dict) and DPoP nonce (str)
 def initial_token_request(
-    auth_request: dict[str, str],
+    auth_request: OAuthAuthRequest,
     code: str,
     app_url: str,
     client_secret_jwk: Key,
 ) -> tuple[dict[str, str], str]:
-    authserver_url = auth_request["authserver_iss"]
+    authserver_url = auth_request.authserver_iss
 
     # Re-fetch server metadata
     authserver_meta = fetch_authserver_meta(authserver_url)
@@ -219,17 +221,15 @@ def initial_token_request(
         "redirect_uri": redirect_uri,
         "grant_type": "authorization_code",
         "code": code,
-        "code_verifier": auth_request["pkce_verifier"],
+        "code_verifier": auth_request.pkce_verifier,
         "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
         "client_assertion": client_assertion,
     }
 
     # Create DPoP header JWT, using the existing DPoP signing key for this account/session
     token_url = authserver_meta["token_endpoint"]
-    dpop_private_jwk = JsonWebKey.import_key(
-        json.loads(auth_request["dpop_private_jwk"])
-    )
-    dpop_authserver_nonce = auth_request["dpop_authserver_nonce"]
+    dpop_private_jwk = JsonWebKey.import_key(json.loads(auth_request.dpop_private_jwk))
+    dpop_authserver_nonce = auth_request.dpop_authserver_nonce
     dpop_proof = authserver_dpop_jwt(
         "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
     )
@@ -262,11 +262,11 @@ def initial_token_request(
 
 # Returns token response (dict) and DPoP nonce (str)
 def refresh_token_request(
-    user: dict,
+    user: OAuthSession,
     app_url: str,
     client_secret_jwk: Key,
 ) -> tuple[dict[str, str], str]:
-    authserver_url = user["authserver_iss"]
+    authserver_url = user.authserver_iss
 
     # Re-fetch server metadata
     authserver_meta = fetch_authserver_meta(authserver_url)
@@ -282,15 +282,15 @@ def refresh_token_request(
     params = {
         "client_id": client_id,
         "grant_type": "refresh_token",
-        "refresh_token": user["refresh_token"],
+        "refresh_token": user.refresh_token,
         "client_assertion_type": "urn:ietf:params:oauth:client-assertion-type:jwt-bearer",
         "client_assertion": client_assertion,
     }
 
     # Create DPoP header JWT, using the existing DPoP signing key for this account/session
     token_url = authserver_meta["token_endpoint"]
-    dpop_private_jwk = JsonWebKey.import_key(json.loads(user["dpop_private_jwk"]))
-    dpop_authserver_nonce = user["dpop_authserver_nonce"]
+    dpop_private_jwk = JsonWebKey.import_key(json.loads(user.dpop_private_jwk))
+    dpop_authserver_nonce = user.dpop_authserver_nonce
     dpop_proof = authserver_dpop_jwt(
         "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
     )
@@ -323,8 +323,8 @@ def refresh_token_request(
 def pds_dpop_jwt(
     method: str,
     url: str,
-    access_token: str,
-    nonce: str,
+    access_token: str | None,
+    nonce: str | None,
     dpop_private_jwk: Key,
 ) -> str:
     dpop_pub_jwk = json.loads(dpop_private_jwk.as_json(is_private=False))
@@ -352,13 +352,13 @@ def pds_dpop_jwt(
 def pds_authed_req(
     method: str,
     url: str,
-    user: dict[str, str],
+    user: OAuthSession,
     db: sqlite3.Connection,
     body: dict[str, Any] | None = None,
 ) -> Response | None:
-    dpop_private_jwk = JsonWebKey.import_key(json.loads(user["dpop_private_jwk"]))
-    dpop_pds_nonce = user["dpop_pds_nonce"]
-    access_token = user["access_token"]
+    dpop_private_jwk = JsonWebKey.import_key(json.loads(user.dpop_private_jwk))
+    dpop_pds_nonce = user.dpop_pds_nonce
+    access_token = user.access_token
 
     response: Response | None = None
 
@@ -395,7 +395,7 @@ def pds_authed_req(
             cur = db.cursor()
             _ = cur.execute(
                 "UPDATE oauth_session SET dpop_pds_nonce = ? WHERE did = ?;",
-                [dpop_pds_nonce, user["did"]],
+                [dpop_pds_nonce, user.did],
             )
             db.commit()
             cur.close()

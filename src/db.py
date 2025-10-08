@@ -1,6 +1,6 @@
-import sqlite3
-
 from flask import Flask, g
+
+import sqlite3
 
 
 def get_db(app: Flask) -> sqlite3.Connection:
