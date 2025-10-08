@@ -13,10 +13,10 @@
         <h1>atlinks</h1>
         <span class="tagline">log in to your account</span>
       </header>
-      <form action="/auth/login" method="post">
+      <form action="{{ url_for('auth_login') }}" method="post">
         <label>
           <span>handle</span>
-          <input type="text" name="handle" required />
+          <input type="text" name="username" required />
         </label>
         <input type="submit" value="log in" />
       </form>

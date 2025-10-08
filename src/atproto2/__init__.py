@@ -149,6 +149,13 @@ def resolve_authserver_meta(authserver_url: str) -> dict[str, str] | None:
     return meta
 
 
+def get_record(pds: str, repo: str, collection: str, record: str) -> str | None:
+    response = http_get(
+        f"{pds}/xrpc/com.atproto.repo.getRecord?repo={repo}&collection={collection}&rkey={record}"
+    )
+    return response
+
+
 def http_get_json(url: str) -> Any | None:
     response = requests.get(url)
     if response.ok:

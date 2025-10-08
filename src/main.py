@@ -1,24 +1,44 @@
 from atproto import Client
-from atproto.exceptions import AtProtocolError
 from atproto_client.models import ComAtprotoRepoCreateRecord
-from atproto_client.models.app.bsky.actor.defs import ProfileViewDetailed
-from flask import Flask, session, redirect, render_template, request
+from flask import Flask, g, session, redirect, render_template, request, url_for
 from urllib import request as http_request
 import json
 
-from .atproto2 import resolve_did_from_handle, resolve_pds_from_did
+from .atproto2 import get_record, resolve_did_from_handle, resolve_pds_from_did
+from .db import close_db_connection, get_db, init_db
 from .oauth import oauth
 
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
 app.register_blueprint(oauth)
+init_db(app)
 
-pdss: dict[str, str] = {}
-dids: dict[str, str] = {}
 links: dict[str, list[dict[str, str]]] = {}
 profiles: dict[str, tuple[str, str]] = {}
 
 SCHEMA = "one.nauta"
+
+
+@app.before_request
+def load_user_to_context():
+    did: str | None = session.get("user_did")
+    if did is None:
+        g.user = None
+    else:
+        db = get_db(app)
+        g.user = db.execute(
+            "select * from oauth_session where did = ?",
+            (did,),
+        ).fetchone()
+
+
+def get_user() -> dict[str, str] | None:
+    return g.user
+
+
+@app.teardown_appcontext
+def app_teardown(exception: BaseException | None):
+    close_db_connection(exception)
 
 
 @app.get("/")
@@ -50,34 +70,36 @@ def page_profile(handle: str):
 
 @app.get("/login")
 def page_login():
-    if "session" in session:
+    if get_user() is not None:
         return redirect("/editor")
     return render_template("login.html")
 
 
+@app.post("/login")
+def auth_login():
+    username = request.form.get("username")
+    if not username:
+        return redirect(url_for("page_login"), 303)
+    return redirect(url_for("oauth.oauth_start", username=username), 303)
+
+
 @app.get("/editor")
 def page_editor():
-    sess: str | None = session.get("session")
-    if sess is None or not sess:
+    user = get_user()
+    if user is None:
         return redirect("/login")
-    client = Client()
-    profile: ProfileViewDetailed | None
-    try:
-        profile = client.login(session_string=sess)
-    except AtProtocolError:
-        session.clear()
-        return redirect("/login", 303)
 
-    pds = resolve_pds_from_did(profile.did)
-    if not pds:
-        return "did not found", 404
-    pro, from_bluesky = load_profile(pds, profile.did, reload=True)
-    links = load_links(pds, profile.did, reload=True) or [{"background": "#fa0"}]
+    did: str = user["did"]
+    pds: str = user["pds_url"]
+    handle: str | None = user["handle"]
+
+    profile, from_bluesky = load_profile(pds, did, reload=True)
+    links = load_links(pds, did, reload=True) or [{"background": "#fa0"}]
 
     return render_template(
         "editor.html",
-        handle=profile.handle,
-        profile=pro,
+        handle=handle,
+        profile=profile,
         profile_from_bluesky=from_bluesky,
         links=json.dumps(links),
     )
@@ -85,11 +107,12 @@ def page_editor():
 
 @app.post("/editor/profile")
 def post_editor_profile():
-    sess: str | None = session.get("session")
-    if sess is None or not sess:
+    user = get_user()
+    if user is None:
         return redirect("/login", 303)
+
     client = Client()
-    profile = client.login(session_string=sess)
+    profile = client.login(session_string=user["did"])
 
     display_name = request.form.get("displayName")
     description = request.form.get("description") or ""
@@ -190,13 +213,6 @@ def load_profile(
     return profile, from_bluesky
 
 
-def get_record(pds: str, repo: str, collection: str, record: str) -> str | None:
-    response = http_get(
-        f"{pds}/xrpc/com.atproto.repo.getRecord?repo={repo}&collection={collection}&rkey={record}"
-    )
-    return response
-
-
 def put_record(client: Client, repo: str, collection: str, rkey: str, record):
     data_model = ComAtprotoRepoCreateRecord.Data(
         collection=collection,
@@ -223,15 +239,12 @@ def http_get(url: str) -> str | None:
 
 @app.route("/auth/logout")
 def auth_logout():
+    user = get_user()
+    if user is not None:
+        db = get_db(app)
+        cursor = db.cursor()
+        _ = cursor.execute("delete from oauth_session where did = ?", (user["did"],))
+        db.commit()
+        cursor.close()
     session.clear()
-    return redirect("/")
-
-
-@app.post("/auth/login")
-def auth_login():
-    handle = request.form.get("handle")
-    if not handle:
-        return redirect("/login", 303)
-    if handle.startswith("@"):
-        handle = handle[1:]
-    return redirect(app.url_for("oauth.oauth_start", username=handle))
+    return redirect("/", 303)

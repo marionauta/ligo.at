@@ -5,28 +5,19 @@ from urllib.parse import urlencode
 import json
 
 from .atproto2.atproto_oauth import initial_token_request, send_par_auth_request
-
 from .atproto2.atproto_security import is_safe_url
-
 from .atproto2 import (
     pds_endpoint_from_doc,
     resolve_authserver_from_pds,
     resolve_authserver_meta,
     resolve_identity,
 )
+from .db import get_db
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 
 
 oauth_auth_requests: dict[str, dict[str, str]] = {}
-oauth_session: dict[str, dict[str, str]] = {}
-
-
-@oauth.get("/home")
-def oauth_home():
-    user_did = session["user_did"]
-    user_handle = session["user_handle"]
-    return f"{user_did} {user_handle}"
 
 
 @oauth.get("/start")
@@ -75,7 +66,7 @@ def oauth_start():
         dpop_private_jwk,
     )
     if resp.status_code == 400:
-        print(f"PAR HTTP 400: {resp.json()}")
+        current_app.logger.info(f"PAR HTTP 400: {resp.json()}")
     resp.raise_for_status()
 
     par_request_uri = resp.json()["request_uri"]
@@ -105,7 +96,7 @@ def oauth_callback():
 
     auth_request = oauth_auth_requests.get(state)
     if auth_request is None:
-        return redirect(url_for("oauth.oauth_home"), 303)
+        return redirect(url_for("page_login"), 303)
 
     current_app.logger.debug(f"Deleting auth request for state={state}")
     _ = oauth_auth_requests.pop(state)
@@ -135,23 +126,30 @@ def oauth_callback():
 
     assert row["scope"] == tokens["scope"]
 
-    oauth_session[did] = {
-        "did": did,
-        "handle": handle,
-        "pds_url": pds_url,
-        "authserver_iss": authserver_iss,
-        "access_token": tokens["access_token"],
-        "refresh_token": tokens["refresh_token"],
-        "dpop_authserver_nonce": dpop_authserver_nonce,
-        "dpop_private_jwk": auth_request["dpop_private_jwk"],
-    }
-
     current_app.logger.debug("storing user did and handle")
+    db = get_db(current_app)
+    cursor = db.cursor()
+    _ = cursor.execute(
+        "insert or replace into oauth_session values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            did,
+            handle,
+            pds_url,
+            authserver_iss,
+            tokens["access_token"],
+            tokens["refresh_token"],
+            dpop_authserver_nonce,
+            None,
+            auth_request["dpop_private_jwk"],
+        ),
+    )
+    db.commit()
+    cursor.close()
 
     session["user_did"] = did
     session["user_handle"] = auth_request["handle"]
 
-    return redirect(url_for("oauth.oauth_home"))
+    return redirect(url_for("page_login"))
 
 
 @oauth.get("/metadata")
