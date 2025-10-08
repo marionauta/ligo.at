@@ -23,9 +23,9 @@ oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 @oauth.get("/start")
 def oauth_start():
     # Identity
-    username = request.args.get("username")
+    username = request.args.get("username") or request.args.get("authserver")
     if not username:
-        return "missing ?username", 400
+        return redirect(url_for("page_login"), 303)
 
     if is_valid_handle(username) or is_valid_did(username):
         login_hint = username
