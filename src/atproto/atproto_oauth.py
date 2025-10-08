@@ -1,5 +1,4 @@
 import sqlite3
-from urllib.parse import urlparse
 from typing import Any
 import time
 import json
@@ -9,112 +8,11 @@ from authlib.jose import jwt
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from requests import Response
 
+from . import fetch_authserver_meta
+
 from ..types import OAuthAuthRequest, OAuthSession
 
-from .atproto_security import is_safe_url, hardened_http
-
-
-# Checks an Authorization Server metadata response against atproto OAuth requirements
-def is_valid_authserver_meta(obj: dict[str, Any] | None, url: str) -> bool:
-    if obj is None:
-        return False
-    fetch_url = urlparse(url)
-    issuer_url = urlparse(obj["issuer"])
-    assert issuer_url.hostname == fetch_url.hostname
-    assert issuer_url.scheme == "https"
-    assert issuer_url.port is None
-    assert issuer_url.path in ["", "/"]
-    assert issuer_url.params == ""
-    assert issuer_url.fragment == ""
-
-    assert "code" in obj["response_types_supported"]
-    assert "authorization_code" in obj["grant_types_supported"]
-    assert "refresh_token" in obj["grant_types_supported"]
-    assert "S256" in obj["code_challenge_methods_supported"]
-    assert "none" in obj["token_endpoint_auth_methods_supported"]
-    assert "private_key_jwt" in obj["token_endpoint_auth_methods_supported"]
-    assert "ES256" in obj["token_endpoint_auth_signing_alg_values_supported"]
-    assert "atproto" in obj["scopes_supported"]
-    assert obj["authorization_response_iss_parameter_supported"] is True
-    assert obj["pushed_authorization_request_endpoint"] is not None
-    assert obj["require_pushed_authorization_requests"] is True
-    assert "ES256" in obj["dpop_signing_alg_values_supported"]
-    if "require_request_uri_registration" in obj:
-        assert obj["require_request_uri_registration"] is True
-    assert obj["client_id_metadata_document_supported"] is True
-
-    return True
-
-
-# Takes a Resource Server (PDS) URL, and tries to resolve it to an Authorization Server host/origin
-def resolve_pds_authserver(url: str) -> str:
-    # IMPORTANT: PDS endpoint URL is untrusted input, SSRF mitigations are needed
-    assert is_safe_url(url)
-    with hardened_http.get_session() as sess:
-        resp = sess.get(f"{url}/.well-known/oauth-protected-resource")
-    resp.raise_for_status()
-    # Additionally check that status is exactly 200 (not just 2xx)
-    assert resp.status_code == 200
-    authserver_url = resp.json()["authorization_servers"][0]
-    return authserver_url
-
-
-# Does an HTTP GET for Authorization Server (entryway) metadata, verify the contents, and return the metadata as a dict
-# DEPRECATED: use atproto2.resolve_authserver_meta
-def fetch_authserver_meta(url: str) -> dict[str, Any]:
-    # IMPORTANT: Authorization Server URL is untrusted input, SSRF mitigations are needed
-    assert is_safe_url(url)
-    with hardened_http.get_session() as sess:
-        resp = sess.get(f"{url}/.well-known/oauth-authorization-server")
-    resp.raise_for_status()
-
-    authserver_meta = resp.json()
-    # print("Auth Server Metadata: " + json.dumps(authserver_meta, indent=2))
-    assert is_valid_authserver_meta(authserver_meta, url)
-    return authserver_meta
-
-
-def client_assertion_jwt(
-    client_id: str,
-    authserver_url: str,
-    client_secret_jwk: Key,
-) -> str:
-    client_assertion = jwt.encode(
-        {"alg": "ES256", "kid": client_secret_jwk["kid"]},
-        {
-            "iss": client_id,
-            "sub": client_id,
-            "aud": authserver_url,
-            "jti": generate_token(),
-            "iat": int(time.time()),
-        },
-        client_secret_jwk,
-    ).decode("utf-8")
-    return client_assertion
-
-
-def authserver_dpop_jwt(
-    method: str,
-    url: str,
-    nonce: str,
-    dpop_private_jwk: Key,
-) -> str:
-    dpop_pub_jwk = json.loads(dpop_private_jwk.as_json(is_private=False))
-    body = {
-        "jti": generate_token(),
-        "htm": method,
-        "htu": url,
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 30,
-    }
-    if nonce:
-        body["nonce"] = nonce
-    dpop_proof = jwt.encode(
-        {"typ": "dpop+jwt", "alg": "ES256", "jwk": dpop_pub_jwk},
-        body,
-        dpop_private_jwk,
-    ).decode("utf-8")
-    return dpop_proof
+from ..security import is_safe_url, hardened_http
 
 
 # Prepares and sends a pushed auth request (PAR) via HTTP POST to the Authorization Server.
@@ -138,13 +36,13 @@ def send_par_auth_request(
     code_challenge_method = "S256"
 
     # Self-signed JWT using the private key declared in client metadata JWKS (confidential client)
-    client_assertion = client_assertion_jwt(
+    client_assertion = _client_assertion_jwt(
         client_id, authserver_url, client_secret_jwk
     )
 
     # Create DPoP header JWT; we don't have a server Nonce yet
     dpop_authserver_nonce = ""
-    dpop_proof = authserver_dpop_jwt(
+    dpop_proof = _authserver_dpop_jwt(
         "POST", par_url, dpop_authserver_nonce, dpop_private_jwk
     )
 
@@ -178,7 +76,7 @@ def send_par_auth_request(
     if resp.status_code == 400 and resp.json()["error"] == "use_dpop_nonce":
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
         print(f"retrying with new auth server DPoP nonce: {dpop_authserver_nonce}")
-        dpop_proof = authserver_dpop_jwt(
+        dpop_proof = _authserver_dpop_jwt(
             "POST", par_url, dpop_authserver_nonce, dpop_private_jwk
         )
         with hardened_http.get_session() as sess:
@@ -206,13 +104,15 @@ def initial_token_request(
 
     # Re-fetch server metadata
     authserver_meta = fetch_authserver_meta(authserver_url)
+    if not authserver_meta:
+        raise Exception("missing authserver meta")
 
     # Construct auth token request fields
     client_id = f"{app_url}oauth/metadata"
     redirect_uri = f"{app_url}oauth/callback"
 
     # Self-signed JWT using the private key declared in client metadata JWKS (confidential client)
-    client_assertion = client_assertion_jwt(
+    client_assertion = _client_assertion_jwt(
         client_id, authserver_url, client_secret_jwk
     )
 
@@ -230,7 +130,7 @@ def initial_token_request(
     token_url = authserver_meta["token_endpoint"]
     dpop_private_jwk = JsonWebKey.import_key(json.loads(auth_request.dpop_private_jwk))
     dpop_authserver_nonce = auth_request.dpop_authserver_nonce
-    dpop_proof = authserver_dpop_jwt(
+    dpop_proof = _authserver_dpop_jwt(
         "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
     )
 
@@ -244,7 +144,7 @@ def initial_token_request(
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
         print(f"retrying with new auth server DPoP nonce: {dpop_authserver_nonce}")
         # print(server_nonce)
-        dpop_proof = authserver_dpop_jwt(
+        dpop_proof = _authserver_dpop_jwt(
             "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
         )
         with hardened_http.get_session() as sess:
@@ -270,12 +170,14 @@ def refresh_token_request(
 
     # Re-fetch server metadata
     authserver_meta = fetch_authserver_meta(authserver_url)
+    if not authserver_meta:
+        raise Exception("missing authserver meta")
 
     # Construct token request fields
     client_id = f"{app_url}oauth/metadata"
 
     # Self-signed JWT using the private key declared in client metadata JWKS (confidential client)
-    client_assertion = client_assertion_jwt(
+    client_assertion = _client_assertion_jwt(
         client_id, authserver_url, client_secret_jwk
     )
 
@@ -291,7 +193,7 @@ def refresh_token_request(
     token_url = authserver_meta["token_endpoint"]
     dpop_private_jwk = JsonWebKey.import_key(json.loads(user.dpop_private_jwk))
     dpop_authserver_nonce = user.dpop_authserver_nonce
-    dpop_proof = authserver_dpop_jwt(
+    dpop_proof = _authserver_dpop_jwt(
         "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
     )
 
@@ -305,7 +207,7 @@ def refresh_token_request(
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
         print(f"retrying with new auth server DPoP nonce: {dpop_authserver_nonce}")
         # print(server_nonce)
-        dpop_proof = authserver_dpop_jwt(
+        dpop_proof = _authserver_dpop_jwt(
             "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
         )
         with hardened_http.get_session() as sess:
@@ -318,33 +220,6 @@ def refresh_token_request(
     token_body = resp.json()
 
     return token_body, dpop_authserver_nonce
-
-
-def pds_dpop_jwt(
-    method: str,
-    url: str,
-    access_token: str | None,
-    nonce: str | None,
-    dpop_private_jwk: Key,
-) -> str:
-    dpop_pub_jwk = json.loads(dpop_private_jwk.as_json(is_private=False))
-    body = {
-        "iat": int(time.time()),
-        "exp": int(time.time()) + 10,
-        "jti": generate_token(),
-        "htm": method,
-        "htu": url,
-        # PKCE S256 is same as DPoP ath hashing
-        "ath": create_s256_code_challenge(access_token),
-    }
-    if nonce:
-        body["nonce"] = nonce
-    dpop_proof = jwt.encode(
-        {"typ": "dpop+jwt", "alg": "ES256", "jwk": dpop_pub_jwk},
-        body,
-        dpop_private_jwk,
-    ).decode("utf-8")
-    return dpop_proof
 
 
 # Helper to demonstrate making a request (HTTP GET or POST) to the user's PDS ("Resource Server" in OAuth terminology) using DPoP and access token.
@@ -364,7 +239,7 @@ def pds_authed_req(
 
     # Might need to retry request with a new nonce.
     for i in range(2):
-        dpop_jwt = pds_dpop_jwt(
+        dpop_jwt = _pds_dpop_jwt(
             "POST",
             url,
             access_token,
@@ -403,3 +278,73 @@ def pds_authed_req(
         break
 
     return response
+
+
+def _client_assertion_jwt(
+    client_id: str,
+    authserver_url: str,
+    client_secret_jwk: Key,
+) -> str:
+    client_assertion = jwt.encode(
+        {"alg": "ES256", "kid": client_secret_jwk["kid"]},
+        {
+            "iss": client_id,
+            "sub": client_id,
+            "aud": authserver_url,
+            "jti": generate_token(),
+            "iat": int(time.time()),
+        },
+        client_secret_jwk,
+    ).decode("utf-8")
+    return client_assertion
+
+
+def _authserver_dpop_jwt(
+    method: str,
+    url: str,
+    nonce: str,
+    dpop_private_jwk: Key,
+) -> str:
+    dpop_pub_jwk = json.loads(dpop_private_jwk.as_json(is_private=False))
+    body = {
+        "jti": generate_token(),
+        "htm": method,
+        "htu": url,
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 30,
+    }
+    if nonce:
+        body["nonce"] = nonce
+    dpop_proof = jwt.encode(
+        {"typ": "dpop+jwt", "alg": "ES256", "jwk": dpop_pub_jwk},
+        body,
+        dpop_private_jwk,
+    ).decode("utf-8")
+    return dpop_proof
+
+
+def _pds_dpop_jwt(
+    method: str,
+    url: str,
+    access_token: str | None,
+    nonce: str | None,
+    dpop_private_jwk: Key,
+) -> str:
+    dpop_pub_jwk = json.loads(dpop_private_jwk.as_json(is_private=False))
+    body = {
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 10,
+        "jti": generate_token(),
+        "htm": method,
+        "htu": url,
+        # PKCE S256 is same as DPoP ath hashing
+        "ath": create_s256_code_challenge(access_token),
+    }
+    if nonce:
+        body["nonce"] = nonce
+    dpop_proof = jwt.encode(
+        {"typ": "dpop+jwt", "alg": "ES256", "jwk": dpop_pub_jwk},
+        body,
+        dpop_private_jwk,
+    ).decode("utf-8")
+    return dpop_proof

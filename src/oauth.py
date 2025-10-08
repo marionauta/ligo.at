@@ -4,15 +4,16 @@ from urllib.parse import urlencode
 
 import json
 
-from .atproto.atproto_identity import is_valid_did, is_valid_handle
 from .atproto.atproto_oauth import initial_token_request, send_par_auth_request
-from .atproto.atproto_security import is_safe_url
 from .atproto import (
+    is_valid_did,
+    is_valid_handle,
     pds_endpoint_from_doc,
     resolve_authserver_from_pds,
-    resolve_authserver_meta,
+    fetch_authserver_meta,
     resolve_identity,
 )
+from .security import is_safe_url
 from .types import OAuthAuthRequest
 from .db import get_db
 
@@ -50,7 +51,7 @@ def oauth_start():
 
     current_app.logger.debug(f"Authserver: {authserver_url}")
     assert is_safe_url(authserver_url)
-    authserver_meta = resolve_authserver_meta(authserver_url)
+    authserver_meta = fetch_authserver_meta(authserver_url)
     if not authserver_meta:
         return "no authserver meta", 404
 

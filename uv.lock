@@ -243,7 +243,7 @@ requires-dist = [
     { name = "dnspython", specifier = ">=2.8.0" },
     { name = "flask", extras = ["dotenv"], specifier = ">=3.1.2" },
     { name = "requests", specifier = ">=2.32" },
-    { name = "requests-hardened", specifier = ">=1.0.0b3" },
+    { name = "requests-hardened", specifier = ">=1.2.0" },
 ]
 
 [[package]]

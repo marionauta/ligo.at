@@ -1,12 +1,15 @@
 from dns.resolver import resolve as resolve_dns
+from re import match as regex_match
 from typing import Any
 import requests
 
-from .atproto_oauth import is_valid_authserver_meta
-from .atproto_security import is_safe_url
-from .atproto_identity import is_valid_did, is_valid_handle
+from .validator import is_valid_authserver_meta
+from ..security import is_safe_url
 
 PLC_DIRECTORY = "https://plc.directory"
+HANDLE_REGEX = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+DID_REGEX = r"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$"
+
 
 AuthserverUrl = str
 PdsUrl = str
@@ -15,6 +18,14 @@ DID = str
 authservers: dict[PdsUrl, AuthserverUrl] = {}
 dids: dict[str, DID] = {}
 pdss: dict[DID, PdsUrl] = {}
+
+
+def is_valid_handle(handle: str) -> bool:
+    return regex_match(HANDLE_REGEX, handle) is not None
+
+
+def is_valid_did(did: str) -> bool:
+    return regex_match(DID_REGEX, did) is not None
 
 
 def resolve_identity(query: str) -> tuple[str, str, dict[str, Any]] | None:
@@ -148,7 +159,7 @@ def resolve_authserver_from_pds(
     return authserver_url
 
 
-def resolve_authserver_meta(authserver_url: str) -> dict[str, str] | None:
+def fetch_authserver_meta(authserver_url: str) -> dict[str, str] | None:
     """Returns metadata from the authserver"""
     assert is_safe_url(authserver_url)
     endpoint = f"{authserver_url}/.well-known/oauth-authorization-server"
