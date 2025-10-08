@@ -1,10 +1,9 @@
-from atproto import Client
-from atproto_client.models import ComAtprotoRepoCreateRecord
 from flask import Flask, g, session, redirect, render_template, request, url_for
-from urllib import request as http_request
+from typing import Any
 import json
 
-from .atproto2 import get_record, resolve_did_from_handle, resolve_pds_from_did
+from .atproto2 import PdsUrl, get_record, resolve_did_from_handle, resolve_pds_from_did
+from .atproto2.atproto_oauth import pds_authed_req
 from .db import close_db_connection, get_db, init_db
 from .oauth import oauth
 
@@ -111,17 +110,15 @@ def post_editor_profile():
     if user is None:
         return redirect("/login", 303)
 
-    client = Client()
-    profile = client.login(session_string=user["did"])
-
     display_name = request.form.get("displayName")
     description = request.form.get("description") or ""
     if not display_name:
         return redirect("/editor", 303)
 
     put_record(
-        client=client,
-        repo=profile.did,
+        user=user,
+        pds=user["pds_url"],
+        repo=user["did"],
         collection=f"{SCHEMA}.actor.profile",
         rkey="self",
         record={
@@ -136,11 +133,9 @@ def post_editor_profile():
 
 @app.post("/editor/links")
 def post_editor_links():
-    sess: str | None = session.get("session")
-    if sess is None or not sess:
+    user = get_user()
+    if user is None:
         return redirect("/login", 303)
-    client = Client()
-    profile = client.login(session_string=sess)
 
     links: list[dict[str, str]] = []
     urls = request.form.getlist("link-url")
@@ -161,8 +156,9 @@ def post_editor_links():
         links.append(link)
 
     put_record(
-        client=client,
-        repo=profile.did,
+        user=user,
+        pds=user["pds_url"],
+        repo=user["did"],
         collection=f"{SCHEMA}.actor.links",
         rkey="self",
         record={
@@ -213,25 +209,30 @@ def load_profile(
     return profile, from_bluesky
 
 
-def put_record(client: Client, repo: str, collection: str, rkey: str, record):
-    data_model = ComAtprotoRepoCreateRecord.Data(
-        collection=collection,
-        repo=repo,
-        rkey=rkey,
-        record=record,
+def put_record(
+    user: dict[str, str],
+    pds: PdsUrl,
+    repo: str,
+    collection: str,
+    rkey: str,
+    record: dict[str, Any],
+):
+    endpoint = f"{pds}/xrpc/com.atproto.repo.putRecord"
+    body = {
+        "repo": repo,
+        "collection": collection,
+        "rkey": rkey,
+        "record": record,
+    }
+    response = pds_authed_req(
+        method="POST",
+        url=endpoint,
+        body=body,
+        user=user,
+        db=get_db(app),
     )
-    _ = client.invoke_procedure(
-        "com.atproto.repo.putRecord",
-        data=data_model,
-        input_encoding="application/json",
-    )
-
-
-def http_get(url: str) -> str | None:
-    try:
-        return http_request.urlopen(url).read()
-    except http_request.HTTPError:
-        return None
+    if not response or not response.ok:
+        app.logger.warning("PDS HTTP ERROR")
 
 
 # AUTH

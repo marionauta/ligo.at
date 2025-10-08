@@ -1,3 +1,4 @@
+import sqlite3
 from urllib.parse import urlparse
 from typing import Any
 import time
@@ -349,10 +350,18 @@ def pds_dpop_jwt(
 
 # Helper to demonstrate making a request (HTTP GET or POST) to the user's PDS ("Resource Server" in OAuth terminology) using DPoP and access token.
 # This method returns a 'requests' reponse, without checking status code.
-def pds_authed_req(method: str, url: str, user: dict, db: Any, body=None) -> Any:
+def pds_authed_req(
+    method: str,
+    url: str,
+    user: dict[str, str],
+    db: sqlite3.Connection,
+    body: dict[str, Any] | None = None,
+) -> Response | None:
     dpop_private_jwk = JsonWebKey.import_key(json.loads(user["dpop_private_jwk"]))
     dpop_pds_nonce = user["dpop_pds_nonce"]
     access_token = user["access_token"]
+
+    response: Response | None = None
 
     # Might need to retry request with a new nonce.
     for i in range(2):
@@ -365,7 +374,7 @@ def pds_authed_req(method: str, url: str, user: dict, db: Any, body=None) -> Any
         )
 
         with hardened_http.get_session() as sess:
-            resp = sess.post(
+            response = sess.post(
                 url,
                 headers={
                     "Authorization": f"DPoP {access_token}",
@@ -376,13 +385,16 @@ def pds_authed_req(method: str, url: str, user: dict, db: Any, body=None) -> Any
 
         # If we got a new server-provided DPoP nonce, store it in database and retry.
         # NOTE: the type of error might also be communicated in the `WWW-Authenticate` HTTP response header.
-        if resp.status_code in [400, 401] and resp.json()["error"] == "use_dpop_nonce":
+        if (
+            response.status_code in [400, 401]
+            and response.json()["error"] == "use_dpop_nonce"
+        ):
             # print(resp.headers)
-            dpop_pds_nonce = resp.headers["DPoP-Nonce"]
+            dpop_pds_nonce = response.headers["DPoP-Nonce"]
             print(f"retrying with new PDS DPoP nonce: {dpop_pds_nonce}")
             # update session database with new nonce
             cur = db.cursor()
-            cur.execute(
+            _ = cur.execute(
                 "UPDATE oauth_session SET dpop_pds_nonce = ? WHERE did = ?;",
                 [dpop_pds_nonce, user["did"]],
             )
@@ -391,4 +403,4 @@ def pds_authed_req(method: str, url: str, user: dict, db: Any, body=None) -> Any
             continue
         break
 
-    return resp
+    return response
