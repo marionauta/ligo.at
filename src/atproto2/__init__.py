@@ -34,8 +34,16 @@ def resolve_identity(query: str) -> tuple[str, str, dict[str, Any]] | None:
         return (did, handle, doc)
 
     if is_valid_did(query):
-        # TODO: resolve did identity
-        return None
+        did = query
+        doc = resolve_doc_from_did(did)
+        if not doc:
+            return None
+        handle = handle_from_doc(doc)
+        if not handle:
+            return None
+        if resolve_did_from_handle(handle) != did:
+            return None
+        return (did, handle, doc)
 
     return None
 

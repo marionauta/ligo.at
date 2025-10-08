@@ -4,6 +4,7 @@ from urllib.parse import urlencode
 
 import json
 
+from .atproto2.atproto_identity import is_valid_did, is_valid_handle
 from .atproto2.atproto_oauth import initial_token_request, send_par_auth_request
 from .atproto2.atproto_security import is_safe_url
 from .atproto2 import (
@@ -26,20 +27,30 @@ def oauth_start():
     username = request.args.get("username")
     if not username:
         return "missing ?username", 400
-    login_hint = username
-    identity = resolve_identity(username)
-    if identity is None:
-        return "couldnt resolve identity", 500
-    did, handle, doc = identity
-    pds_url = pds_endpoint_from_doc(doc)
-    if not pds_url:
-        return "pds not found", 404
-    current_app.logger.debug(f"account PDS: {pds_url}")
-    authserver_url = resolve_authserver_from_pds(pds_url)
-    if not authserver_url:
-        return "authserver not found", 404
-    current_app.logger.debug(f"Authserver: {authserver_url}")
 
+    if is_valid_handle(username) or is_valid_did(username):
+        login_hint = username
+        identity = resolve_identity(username)
+        if identity is None:
+            return "couldnt resolve identity", 500
+        did, handle, doc = identity
+        pds_url = pds_endpoint_from_doc(doc)
+        if not pds_url:
+            return "pds not found", 404
+        current_app.logger.debug(f"account PDS: {pds_url}")
+        authserver_url = resolve_authserver_from_pds(pds_url)
+        if not authserver_url:
+            return "authserver not found", 404
+
+    elif username.startswith("https://") and is_safe_url(username):
+        did, handle, pds_url = None, None, None
+        login_hint = None
+        authserver_url = resolve_authserver_from_pds(username) or username
+
+    else:
+        return "not a valid handle, did or auth server", 400
+
+    current_app.logger.debug(f"Authserver: {authserver_url}")
     assert is_safe_url(authserver_url)
     authserver_meta = resolve_authserver_meta(authserver_url)
     if not authserver_meta:
@@ -49,9 +60,14 @@ def oauth_start():
     dpop_private_jwk: Key = JsonWebKey.generate_key("EC", "P-256", is_private=True)
     scope = "atproto transition:generic"
 
-    app_url = request.url_root.replace("http://", "https://")
-    redirect_uri = f"{app_url}oauth/callback"
-    client_id = f"{app_url}oauth/metadata"
+    host = request.host
+    metadata_endpoint = url_for("oauth.oauth_metadata")
+    client_id = f"https://{host}{metadata_endpoint}"
+    callback_endpoint = url_for("oauth.oauth_callback")
+    redirect_uri = f"https://{host}{callback_endpoint}"
+
+    current_app.logger.debug(client_id)
+    current_app.logger.debug(redirect_uri)
 
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
 
@@ -66,26 +82,26 @@ def oauth_start():
         dpop_private_jwk,
     )
     if resp.status_code == 400:
-        current_app.logger.info(f"PAR HTTP 400: {resp.json()}")
+        current_app.logger.debug(f"PAR HTTP 400: {resp.json()}")
     resp.raise_for_status()
 
-    par_request_uri = resp.json()["request_uri"]
+    par_request_uri: str = resp.json()["request_uri"]
     current_app.logger.debug(f"saving oauth_auth_request to DB  state={state}")
     oauth_auth_requests[state] = {
         "authserver_iss": authserver_meta["issuer"],
-        "did": did,
-        "handle": handle,
-        "pds_url": pds_url,
+        "did": did or "",  # TODO: use actual typing
+        "handle": handle or "",
+        "pds_url": pds_url or "",
         "pkce_verifier": pkce_verifier,
         "scope": scope,
         "dpop_authserver_nonce": dpop_authserver_nonce,
         "dpop_private_jwk": dpop_private_jwk.as_json(is_private=True),
     }
 
-    auth_url = authserver_meta["authorization_endpoint"]
-    assert is_safe_url(auth_url)
+    auth_endpoint = authserver_meta["authorization_endpoint"]
+    assert is_safe_url(auth_endpoint)
     qparam = urlencode({"client_id": client_id, "request_uri": par_request_uri})
-    return redirect(f"{auth_url}?{qparam}")
+    return redirect(f"{auth_endpoint}?{qparam}")
 
 
 @oauth.get("/callback")
@@ -121,8 +137,17 @@ def oauth_callback():
         did, handle, pds_url = row["did"], row["handle"], row["pds_url"]
         assert tokens["sub"] == did
     else:
-        # we started with auth server URL
-        raise Exception()
+        did = tokens["sub"]
+        assert is_valid_did(did)
+        identity = resolve_identity(did)
+        if not identity:
+            return "could not resolve identity", 500
+        did, handle, did_doc = identity
+        pds_url = pds_endpoint_from_doc(did_doc)
+        if not pds_url:
+            return "could not resolve pds", 500
+        authserver_url = resolve_authserver_from_pds(pds_url)
+        assert authserver_url == authserver_iss
 
     assert row["scope"] == tokens["scope"]
 
@@ -161,7 +186,6 @@ def oauth_metadata():
     return jsonify(
         {
             "client_id": f"https://{host}{metadata_endpoint}",
-            "application_type": "web",
             "grant_types": ["authorization_code", "refresh_token"],
             "scope": "atproto transition:generic",
             "response_types": ["code"],

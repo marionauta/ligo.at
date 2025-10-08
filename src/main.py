@@ -76,7 +76,9 @@ def page_login():
 
 @app.post("/login")
 def auth_login():
-    username = request.form.get("username")
+    username = request.form.get("username", "")
+    if username[0] == "@":
+        username = username[1:]
     if not username:
         return redirect(url_for("page_login"), 303)
     return redirect(url_for("oauth.oauth_start", username=username), 303)

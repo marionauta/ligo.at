@@ -120,7 +120,7 @@ def authserver_dpop_jwt(
 def send_par_auth_request(
     authserver_url: str,
     authserver_meta: dict[str, str],
-    login_hint: str,
+    login_hint: str | None,
     client_id: str,
     redirect_uri: str,
     scope: str,
@@ -159,7 +159,6 @@ def send_par_auth_request(
     }
     if login_hint:
         par_body["login_hint"] = login_hint
-    # print(par_body)
 
     # IMPORTANT: Pushed Authorization Request URL is untrusted input, SSRF mitigations are needed
     assert is_safe_url(par_url)
