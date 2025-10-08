@@ -52,42 +52,47 @@
       <noscript>
         JavaScript is needed for a better experience configuring the links.
       </noscript>
-      <form action="/editor/links" method="post" @change="linksChanged = true" x-sort>
+      <form action="/editor/links" method="post" @change="linksChanged = true">
         <input type="submit" value="save links" />
 
-        <template x-for="(link, index) in links">
-          <link-editor-item x-data="{ editing: !link.url }" x-sort:item="link.url">
-            <div x-show="!editing">
-              <link-item x-sort:handle class="static" :style="'color: ' + link.background">
-                <link-item-title x-text="link.title"></link-item-title>
-                <link-item-detail x-show="link.detail" x-text="link.detail"></link-item-detail>
-              </link-item>
-              <link-editor-buttons>
-                <button type="button" @click="editing = true">edit</button>
-                <button type="button" @click="if (confirm('delete?')) links.splice(index, 1)">delete</button>
-              </link-editor-buttons>
-            </div>
-            <div x-show="editing">
-              <label>
-                <span>URL</span>
-                <input type="text" name="link-url" x-model="link.url" required />
-              </label>
-              <label>
-                <span>Title</span>
-                <input type="text" name="link-title" x-model="link.title" required />
-              </label>
-              <label>
-                <span>Subtitle</span>
-                <input type="text" name="link-detail" x-model="link.detail" />
-              </label>
-              <label>
-                <span>Background color</span>
-                <input type="color" name="link-background" x-model="link.background" required />
-              </label>
-              <button type="button" @click="editing = false">ok</button>
-            </div>
-          </link-editor-item>
-        </template>
+        <div x-sort x-sort:config="{ handle: '[x-sort\\:handle]' }">
+          <template x-for="(link, index) in links">
+            <link-editor-item x-data="{ editing: !link.url }" x-sort:item="link.url">
+              <link-editor-header>
+                <link-item class="static" :style="'color: ' + link.background">
+                  <link-item-title x-text="link.title"></link-item-title>
+                  <link-item-detail x-show="link.detail" x-text="link.detail"></link-item-detail>
+                </link-item>
+                <link-editor-drag-handle x-sort:handle>⠿</link-editor-drag-handle>
+              </link-editor-header>
+              <div x-show="!editing">
+                <link-editor-buttons>
+                  <button type="button" @click="editing = true">edit</button>
+                  <button type="button" @click="if (confirm('delete?')) links.splice(index, 1)">delete</button>
+                </link-editor-buttons>
+              </div>
+              <div x-show="editing">
+                <label>
+                  <span>URL</span>
+                  <input type="text" name="link-url" x-model="link.url" required />
+                </label>
+                <label>
+                  <span>Title</span>
+                  <input type="text" name="link-title" x-model="link.title" required />
+                </label>
+                <label>
+                  <span>Subtitle</span>
+                  <input type="text" name="link-detail" x-model="link.detail" />
+                </label>
+                <label>
+                  <span>Background color</span>
+                  <input type="color" name="link-background" x-model="link.background" required />
+                </label>
+                <button type="button" @click="editing = false">ok</button>
+              </div>
+            </link-editor-item>
+          </template>
+        </div>
 
         <label style="display: block; margin-top: 1em;">
           <button type="button" @click="links.push({ background: '#fa0' })">add link</button>
