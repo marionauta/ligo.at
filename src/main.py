@@ -6,15 +6,18 @@ from flask import Flask, session, redirect, render_template, request
 from urllib import request as http_request
 import json
 
+from .atproto2 import resolve_did_from_handle, resolve_pds_from_did
+from .oauth import oauth
+
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
+app.register_blueprint(oauth)
 
 pdss: dict[str, str] = {}
 dids: dict[str, str] = {}
 links: dict[str, list[dict[str, str]]] = {}
 profiles: dict[str, tuple[str, str]] = {}
 
-PLC_DIRECTORY = "https://plc.directory"
 SCHEMA = "one.nauta"
 
 
@@ -187,42 +190,6 @@ def load_profile(
     return profile, from_bluesky
 
 
-def resolve_pds_from_did(did: str, reload: bool = False) -> str | None:
-    if did in pdss and not reload:
-        app.logger.debug(f"returning cached pds for {did}")
-        return pdss[did]
-
-    response = http_get(f"{PLC_DIRECTORY}/{did}")
-    if response is None:
-        return None
-    parsed = json.loads(response)
-    pds = parsed["service"][0]["serviceEndpoint"]
-    pdss[did] = pds
-    app.logger.debug(f"caching pds {pds} for {did}")
-    return pds
-
-
-def resolve_did_from_handle(handle: str, reload: bool = False) -> str | None:
-    if handle in dids and not reload:
-        app.logger.debug(f"returning cached did for {handle}")
-        return dids[handle]
-
-    response = http_get(f"https://dns.google/resolve?name=_atproto.{handle}&type=TXT")
-    if response is None:
-        return None
-    parsed = json.loads(response)
-    answers = parsed["Answer"]
-    if len(answers) < 1:
-        return handle
-    data: str = answers[0]["data"]
-    if not data.startswith("did="):
-        return handle
-    did = data[4:]
-    dids[handle] = did
-    app.logger.debug(f"caching did {did} for {handle}")
-    return did
-
-
 def get_record(pds: str, repo: str, collection: str, record: str) -> str | None:
     response = http_get(
         f"{pds}/xrpc/com.atproto.repo.getRecord?repo={repo}&collection={collection}&rkey={record}"
@@ -263,17 +230,8 @@ def auth_logout():
 @app.post("/auth/login")
 def auth_login():
     handle = request.form.get("handle")
-    password = request.form.get("password")
-    if not handle or not password:
+    if not handle:
         return redirect("/login", 303)
     if handle.startswith("@"):
         handle = handle[1:]
-    session_string: str | None
-    try:
-        client = Client()
-        _ = client.login(handle, password)
-        session_string = client.export_session_string()
-    except AtProtocolError:
-        return redirect("/login", 303)
-    session["session"] = session_string
-    return redirect("/editor", code=303)
+    return redirect(app.url_for("oauth.oauth_start", username=handle))
