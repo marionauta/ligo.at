@@ -77,8 +77,9 @@ ul {
 }
 
 link-item {
-    display: block;
     background: currentColor;
+    display: block;
+    flex-grow: 1;
     transition: transform 0.1s;
     text-align: center;
     padding: 0.5em;
@@ -181,6 +182,22 @@ link-editor-item {
     padding: 0.25em;
     border: 1px solid var(--color-border-secondary);
     border-radius: 2px;
+}
+
+link-editor-header {
+    display: flex;
+    flex-direction: row;
+    gap: 0.25em;
+}
+
+link-editor-drag-handle {
+    background: var(--color-background-secondary);
+    display: flex;
+    flex-grow: 0;
+    padding: 2px;
+    line-height: 100%;
+    font-size: 1.5em;
+    align-items: center;
 }
 
 link-editor-buttons {
