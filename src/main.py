@@ -4,8 +4,8 @@ import json
 
 from .atproto import PdsUrl, get_record, resolve_did_from_handle, resolve_pds_from_did
 from .atproto.oauth import pds_authed_req
-from .db import close_db_connection, get_db, init_db
-from .oauth import oauth
+from .db import close_db_connection, init_db
+from .oauth import get_auth_session, oauth, save_auth_session
 from .types import OAuthSession
 
 app = Flask(__name__)
@@ -21,16 +21,7 @@ SCHEMA = "one.nauta"
 
 @app.before_request
 def load_user_to_context():
-    user: OAuthSession | None = None
-    did: str | None = session.get("user_did")
-    if did is not None:
-        db = get_db(app)
-        row = db.execute(
-            "select * from oauth_session where did = ?",
-            (did,),
-        ).fetchone()
-        user = OAuthSession(**row)
-    g.user = user
+    g.user = get_auth_session(session)
 
 
 def get_user() -> OAuthSession | None:
@@ -84,6 +75,12 @@ def auth_login():
     if not username:
         return redirect(url_for("page_login"), 303)
     return redirect(url_for("oauth.oauth_start", username=username), 303)
+
+
+@app.route("/auth/logout")
+def auth_logout():
+    session.clear()
+    return redirect("/", 303)
 
 
 @app.get("/editor")
@@ -174,6 +171,11 @@ def post_editor_links():
     return redirect("/editor", 303)
 
 
+@app.get("/terms")
+def page_terms():
+    return "come back soon"
+
+
 def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]] | None:
     if did in links and not reload:
         app.logger.debug(f"returning cached links for {did}")
@@ -228,28 +230,17 @@ def put_record(
         "rkey": rkey,
         "record": record,
     }
+
+    def update_dpop_pds_nonce(nonce: str):
+        session_ = user._replace(dpop_pds_nonce=nonce)
+        save_auth_session(session, session_)
+
     response = pds_authed_req(
         method="POST",
         url=endpoint,
         body=body,
         user=user,
-        db=get_db(app),
+        update_dpop_pds_nonce=update_dpop_pds_nonce,
     )
     if not response or not response.ok:
         app.logger.warning("PDS HTTP ERROR")
-
-
-# AUTH
-
-
-@app.route("/auth/logout")
-def auth_logout():
-    user = get_user()
-    if user is not None:
-        db = get_db(app)
-        cursor = db.cursor()
-        _ = cursor.execute("delete from oauth_session where did = ?", (user.did,))
-        db.commit()
-        cursor.close()
-    session.clear()
-    return redirect("/", 303)

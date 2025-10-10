@@ -1,5 +1,7 @@
+from typing import NamedTuple
 from authlib.jose import JsonWebKey, Key
 from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
+from flask.sessions import SessionMixin
 from urllib.parse import urlencode
 
 import json
@@ -14,8 +16,7 @@ from .atproto import (
 )
 from .atproto.oauth import initial_token_request, send_par_auth_request
 from .security import is_safe_url
-from .types import OAuthAuthRequest
-from .db import get_db
+from .types import OAuthAuthRequest, OAuthSession
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 
@@ -87,24 +88,18 @@ def oauth_start():
     par_request_uri: str = resp.json()["request_uri"]
     current_app.logger.debug(f"saving oauth_auth_request to DB  state={state}")
 
-    db = get_db(current_app)
-    cursor = db.cursor()
-    _ = cursor.execute(
-        "insert or replace into oauth_auth_requests values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            state,
-            authserver_meta["issuer"],
-            did,
-            handle,
-            pds_url,
-            pkce_verifier,
-            scope,
-            dpop_authserver_nonce,
-            dpop_private_jwk.as_json(is_private=True),
-        ),
+    oauth_request = OAuthAuthRequest(
+        state,
+        authserver_meta["issuer"],
+        did,
+        handle,
+        pds_url,
+        pkce_verifier,
+        scope,
+        dpop_authserver_nonce,
+        dpop_private_jwk.as_json(is_private=True),
     )
-    db.commit()
-    cursor.close()
+    save_auth_request(session, oauth_request)
 
     auth_endpoint = authserver_meta["authorization_endpoint"]
     assert is_safe_url(auth_endpoint)
@@ -118,20 +113,12 @@ def oauth_callback():
     authserver_iss = request.args["iss"]
     authorization_code = request.args["code"]
 
-    db = get_db(current_app)
-    cursor = db.cursor()
-
-    row = cursor.execute(
-        "select * from oauth_auth_requests where state = ?", (state,)
-    ).fetchone()
-    try:
-        auth_request = OAuthAuthRequest(**row)
-    except TypeError:
+    auth_request = get_auth_request(session)
+    if not auth_request:
         return redirect(url_for("page_login"), 303)
 
     current_app.logger.debug(f"Deleting auth request for state={state}")
-    _ = cursor.execute("delete from oauth_auth_requests where state = ?", (state,))
-    db.commit()
+    delete_auth_request(session)
 
     assert auth_request.authserver_iss == authserver_iss
     assert auth_request.state == state
@@ -147,7 +134,6 @@ def oauth_callback():
 
     row = auth_request
 
-    did = auth_request.did
     if row.did:
         # If we started with an account identifier, this is simple
         did, handle, pds_url = row.did, row.handle, row.pds_url
@@ -166,29 +152,21 @@ def oauth_callback():
         assert authserver_url == authserver_iss
 
     assert row.scope == tokens.scope
+    assert pds_url is not None
 
-    current_app.logger.debug("storing user did and handle")
-    db = get_db(current_app)
-    cursor = db.cursor()
-    _ = cursor.execute(
-        "insert or replace into oauth_session values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            did,
-            handle,
-            pds_url,
-            authserver_iss,
-            tokens.access_token,
-            tokens.refresh_token,
-            dpop_authserver_nonce,
-            None,
-            auth_request.dpop_private_jwk,
-        ),
+    current_app.logger.debug("storing user oauth session")
+    oauth_session = OAuthSession(
+        did,
+        handle,
+        pds_url,
+        authserver_iss,
+        tokens.access_token,
+        tokens.refresh_token,
+        dpop_authserver_nonce,
+        None,
+        auth_request.dpop_private_jwk,
     )
-    db.commit()
-    cursor.close()
-
-    session["user_did"] = did
-    session["user_handle"] = auth_request.handle
+    save_auth_session(session, oauth_session)
 
     return redirect(url_for("page_login"))
 
@@ -221,3 +199,48 @@ def oauth_jwks():
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
     CLIENT_PUB_JWK = json.loads(CLIENT_SECRET_JWK.as_json(is_private=False))
     return jsonify({"keys": [CLIENT_PUB_JWK]})
+
+
+# Session storage
+
+
+def save_auth_request(session: SessionMixin, request: OAuthAuthRequest):
+    return _set_into_session(session, "oauth_auth_request", request)
+
+
+def save_auth_session(session: SessionMixin, auth_session: OAuthSession):
+    return _set_into_session(session, "oauth_auth_session", auth_session)
+
+
+def delete_auth_request(session: SessionMixin):
+    return _delete_from_session(session, "oauth_auth_request")
+
+
+def delete_auth_session(session: SessionMixin):
+    return _delete_from_session(session, "oauth_auth_session")
+
+
+def get_auth_request(session: SessionMixin) -> OAuthAuthRequest | None:
+    try:
+        return OAuthAuthRequest(**session["oauth_auth_request"])
+    except TypeError as exception:
+        current_app.logger.debug("unable to load oauth_auth_request")
+        current_app.logger.debug(exception)
+        return None
+
+
+def get_auth_session(session: SessionMixin) -> OAuthSession | None:
+    try:
+        return OAuthSession(**session["oauth_auth_session"])
+    except TypeError as exception:
+        current_app.logger.debug("unable to load oauth_auth_session")
+        current_app.logger.debug(exception)
+        return None
+
+
+def _set_into_session(session: SessionMixin, key: str, value: NamedTuple):
+    session[key] = value._asdict()
+
+
+def _delete_from_session(session: SessionMixin, key: str):
+    del session[key]

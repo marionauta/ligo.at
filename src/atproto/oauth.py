@@ -1,5 +1,4 @@
-import sqlite3
-from typing import Any, NamedTuple
+from typing import Any, Callable, NamedTuple
 import time
 import json
 from authlib.jose import JsonWebKey, Key
@@ -20,6 +19,9 @@ class OAuthTokens(NamedTuple):
     refresh_token: str
     scope: str
     sub: str
+    # only for parsing
+    token_type: str | None
+    expires_in: int | None
 
 
 # Prepares and sends a pushed auth request (PAR) via HTTP POST to the Authorization Server.
@@ -160,10 +162,7 @@ def initial_token_request(
 
     resp.raise_for_status()
     token_body = resp.json()
-    try:
-        tokens = OAuthTokens(**token_body)
-    except TypeError:
-        raise Exception("invalid token body")
+    tokens = OAuthTokens(**token_body)
 
     return tokens, dpop_authserver_nonce
 
@@ -226,10 +225,7 @@ def refresh_token_request(
 
     resp.raise_for_status()
     token_body = resp.json()
-    try:
-        tokens = OAuthTokens(**token_body)
-    except TypeError:
-        raise Exception("invalid token body")
+    tokens = OAuthTokens(**token_body)
 
     return tokens, dpop_authserver_nonce
 
@@ -240,7 +236,7 @@ def pds_authed_req(
     method: str,
     url: str,
     user: OAuthSession,
-    db: sqlite3.Connection,
+    update_dpop_pds_nonce: Callable[[str], None],
     body: dict[str, Any] | None = None,
 ) -> Response | None:
     dpop_private_jwk = JsonWebKey.import_key(json.loads(user.dpop_private_jwk))
@@ -275,17 +271,9 @@ def pds_authed_req(
             response.status_code in [400, 401]
             and response.json()["error"] == "use_dpop_nonce"
         ):
-            # print(resp.headers)
             dpop_pds_nonce = response.headers["DPoP-Nonce"]
             print(f"retrying with new PDS DPoP nonce: {dpop_pds_nonce}")
-            # update session database with new nonce
-            cur = db.cursor()
-            _ = cur.execute(
-                "UPDATE oauth_session SET dpop_pds_nonce = ? WHERE did = ?;",
-                [dpop_pds_nonce, user.did],
-            )
-            db.commit()
-            cur.close()
+            update_dpop_pds_nonce(dpop_pds_nonce)
             continue
         break
 
