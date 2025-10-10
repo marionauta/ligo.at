@@ -1,5 +1,5 @@
 import sqlite3
-from typing import Any
+from typing import Any, NamedTuple
 import time
 import json
 from authlib.jose import JsonWebKey, Key
@@ -13,6 +13,13 @@ from . import fetch_authserver_meta
 from ..types import OAuthAuthRequest, OAuthSession
 
 from ..security import is_safe_url, hardened_http
+
+
+class OAuthTokens(NamedTuple):
+    access_token: str
+    refresh_token: str
+    scope: str
+    sub: str
 
 
 # Prepares and sends a pushed auth request (PAR) via HTTP POST to the Authorization Server.
@@ -93,13 +100,14 @@ def send_par_auth_request(
 
 
 # Completes the auth flow by sending an initial auth token request.
-# Returns token response (dict) and DPoP nonce (str)
+# Returns token response (OAuthTokens) and DPoP nonce (str)
+# IMPORTANT: the 'tokens.sub' field must be verified against the original request by code calling this function.
 def initial_token_request(
     auth_request: OAuthAuthRequest,
     code: str,
     app_url: str,
     client_secret_jwk: Key,
-) -> tuple[dict[str, str], str]:
+) -> tuple[OAuthTokens, str]:
     authserver_url = auth_request.authserver_iss
 
     # Re-fetch server metadata
@@ -150,22 +158,22 @@ def initial_token_request(
         with hardened_http.get_session() as sess:
             resp = sess.post(token_url, data=params, headers={"DPoP": dpop_proof})
 
-    token_body = resp.json()
-    print(token_body)
-
     resp.raise_for_status()
+    token_body = resp.json()
+    try:
+        tokens = OAuthTokens(**token_body)
+    except TypeError:
+        raise Exception("invalid token body")
 
-    # IMPORTANT: the 'sub' field must be verified against the original request by code calling this function.
-
-    return token_body, dpop_authserver_nonce
+    return tokens, dpop_authserver_nonce
 
 
-# Returns token response (dict) and DPoP nonce (str)
+# Returns token response (OAuthTokens) and DPoP nonce (str)
 def refresh_token_request(
     user: OAuthSession,
     app_url: str,
     client_secret_jwk: Key,
-) -> tuple[dict[str, str], str]:
+) -> tuple[OAuthTokens, str]:
     authserver_url = user.authserver_iss
 
     # Re-fetch server metadata
@@ -218,8 +226,12 @@ def refresh_token_request(
 
     resp.raise_for_status()
     token_body = resp.json()
+    try:
+        tokens = OAuthTokens(**token_body)
+    except TypeError:
+        raise Exception("invalid token body")
 
-    return token_body, dpop_authserver_nonce
+    return tokens, dpop_authserver_nonce
 
 
 # Helper to demonstrate making a request (HTTP GET or POST) to the user's PDS ("Resource Server" in OAuth terminology) using DPoP and access token.

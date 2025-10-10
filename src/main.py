@@ -3,7 +3,7 @@ from typing import Any
 import json
 
 from .atproto import PdsUrl, get_record, resolve_did_from_handle, resolve_pds_from_did
-from .atproto.atproto_oauth import pds_authed_req
+from .atproto.oauth import pds_authed_req
 from .db import close_db_connection, get_db, init_db
 from .oauth import oauth
 from .types import OAuthSession

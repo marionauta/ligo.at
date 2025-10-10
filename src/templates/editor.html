@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>edit your profile &mdash; atlinks</title>
+    <title>edit your profile &mdash; ligo.at</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
@@ -12,7 +12,7 @@
   <body>
     <div class="wrapper editor" x-data="{ links: {{ links }}, linksChanged: false }">
       <header>
-        <h1>atlinks</h1>
+        <h1>ligo.at</h1>
         <span class="tagline">edit your profile & links</span>
       </header>
 
@@ -34,7 +34,7 @@
         </label>
         {% if profile_from_bluesky %}
         <p>
-          <span class="caption">Profile was fetched from Bluesky. On save it will use an independent, atlinks only copy.</span>
+          <span class="caption">Profile was fetched from Bluesky. On save it will use an independent, ligo.at only copy.</span>
         </p>
         {% endif %}
         <label>

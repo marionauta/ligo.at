@@ -4,7 +4,6 @@ from urllib.parse import urlencode
 
 import json
 
-from .atproto.atproto_oauth import initial_token_request, send_par_auth_request
 from .atproto import (
     is_valid_did,
     is_valid_handle,
@@ -13,6 +12,7 @@ from .atproto import (
     fetch_authserver_meta,
     resolve_identity,
 )
+from .atproto.oauth import initial_token_request, send_par_auth_request
 from .security import is_safe_url
 from .types import OAuthAuthRequest
 from .db import get_db
@@ -151,9 +151,9 @@ def oauth_callback():
     if row.did:
         # If we started with an account identifier, this is simple
         did, handle, pds_url = row.did, row.handle, row.pds_url
-        assert tokens["sub"] == did
+        assert tokens.sub == did
     else:
-        did = tokens["sub"]
+        did = tokens.sub
         assert is_valid_did(did)
         identity = resolve_identity(did)
         if not identity:
@@ -165,7 +165,7 @@ def oauth_callback():
         authserver_url = resolve_authserver_from_pds(pds_url)
         assert authserver_url == authserver_iss
 
-    assert row.scope == tokens["scope"]
+    assert row.scope == tokens.scope
 
     current_app.logger.debug("storing user did and handle")
     db = get_db(current_app)
@@ -177,8 +177,8 @@ def oauth_callback():
             handle,
             pds_url,
             authserver_iss,
-            tokens["access_token"],
-            tokens["refresh_token"],
+            tokens.access_token,
+            tokens.refresh_token,
             dpop_authserver_nonce,
             None,
             auth_request.dpop_private_jwk,

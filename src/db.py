@@ -8,6 +8,7 @@ def get_db(app: Flask) -> sqlite3.Connection:
     if db is None:
         db_path: str = app.config.get("DATABASE_URL", "ligoat.db")
         db = g.db = sqlite3.connect(db_path)
+        # return rows as dict-like objects
         db.row_factory = sqlite3.Row
     return db
 
