@@ -1,3 +1,6 @@
+.env:
+	uv run -- generate_secrets.py >> .env
+
 .PHONY: debug
 debug:
 	uv run -- flask --app 'src.main' run --debug -h '0.0.0.0' -p 8080
