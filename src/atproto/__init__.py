@@ -1,7 +1,7 @@
 from dns.resolver import resolve as resolve_dns
 from re import match as regex_match
 from typing import Any
-import requests
+import httpx
 
 from .validator import is_valid_authserver_meta
 from ..security import is_safe_url
@@ -125,8 +125,8 @@ def resolve_doc_from_did(
     directory: str = PLC_DIRECTORY,
 ) -> dict[str, Any] | None:
     if did.startswith("did:plc:"):
-        response = requests.get(f"{directory}/{did}")
-        if response.ok:
+        response = httpx.get(f"{directory}/{did}")
+        if response.is_success:
             return response.json()
         return None
 
@@ -149,7 +149,7 @@ def resolve_authserver_from_pds(
 
     assert is_safe_url(pds_url)
     endpoint = f"{pds_url}/.well-known/oauth-protected-resource"
-    response = requests.get(endpoint)
+    response = httpx.get(endpoint)
     if response.status_code != 200:
         return None
     parsed: dict[str, list[str]] = response.json()
@@ -176,14 +176,14 @@ def get_record(pds: str, repo: str, collection: str, record: str) -> str | None:
 
 
 def http_get_json(url: str) -> Any | None:
-    response = requests.get(url)
-    if response.ok:
+    response = httpx.get(url)
+    if response.is_success:
         return response.json()
     return None
 
 
 def http_get(url: str) -> str | None:
-    response = requests.get(url)
-    if response.ok:
+    response = httpx.get(url)
+    if response.is_success:
         return response.text
     return None

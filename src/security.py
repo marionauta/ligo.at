@@ -1,5 +1,5 @@
 from urllib.parse import urlparse
-import requests_hardened
+import httpx
 
 
 # this is a crude/partial filter that looks at HTTPS URLs and checks if they seem "safe" for server-side requests (SSRF). This is only a partial mitigation, the actual HTTP client also needs to prevent other attacks and behaviors.
@@ -29,13 +29,15 @@ def is_safe_url(url: str) -> bool:
     return True
 
 
-# configures a "hardened" requests wrapper
-hardened_http = requests_hardened.Manager(
-    requests_hardened.Config(
-        default_timeout=(2, 10),
-        never_redirect=True,
-        ip_filter_enable=True,
-        ip_filter_allow_loopback_ips=False,
-        user_agent_override="AtprotoCookbookOAuthFlaskDemo",
-    )
-)
+class HardenedHttp:
+    def get_session(self) -> httpx.Client:
+        return httpx.Client(
+            timeout=httpx.Timeout(20, connect=5),
+            follow_redirects=False,
+            headers={
+                "User-Agent": "ligo.at/0",
+            },
+        )
+
+
+hardened_http = HardenedHttp()

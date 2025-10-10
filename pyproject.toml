@@ -9,6 +9,5 @@ dependencies = [
     "dnspython>=2.8.0",
     "flask[dotenv]>=3.1.2",
     "gunicorn>=23.0.0",
-    "requests>=2.32",
-    "requests-hardened>=1.2.0",
+    "httpx>=0.28.1",
 ]

@@ -5,7 +5,7 @@ from authlib.jose import JsonWebKey, Key
 from authlib.common.security import generate_token
 from authlib.jose import jwt
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
-from requests import Response
+from httpx import Response
 
 from . import fetch_authserver_meta
 

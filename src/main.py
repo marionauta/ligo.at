@@ -2,7 +2,13 @@ from flask import Flask, g, session, redirect, render_template, request, url_for
 from typing import Any
 import json
 
-from .atproto import PdsUrl, get_record, resolve_did_from_handle, resolve_pds_from_did
+from .atproto import (
+    PdsUrl,
+    get_record,
+    is_valid_did,
+    resolve_did_from_handle,
+    resolve_pds_from_did,
+)
 from .atproto.oauth import pds_authed_req
 from .db import close_db_connection, init_db
 from .oauth import get_auth_session, oauth, save_auth_session
@@ -16,7 +22,7 @@ init_db(app)
 links: dict[str, list[dict[str, str]]] = {}
 profiles: dict[str, tuple[str, str]] = {}
 
-SCHEMA = "one.nauta"
+SCHEMA = "at.ligo"
 
 
 @app.before_request
@@ -38,13 +44,25 @@ def page_home():
     return render_template("index.html")
 
 
+@app.get("/did:<string:did>")
+def page_profile_with_did(did: str):
+    did = f"did:{did}"
+    if not is_valid_did(did):
+        return "invalid did", 400
+    return page_profile(did)
+
+
 @app.get("/@<string:handle>")
-def page_profile(handle: str):
+def page_profile_with_handle(handle: str):
     reload = request.args.get("reload") is not None
 
     did = resolve_did_from_handle(handle, reload=reload)
     if did is None:
         return "did not found", 404
+    return page_profile(did, reload=reload)
+
+
+def page_profile(did: str, reload: bool = False):
     pds = resolve_pds_from_did(did, reload=reload)
     if pds is None:
         return "pds not found", 404
@@ -242,5 +260,5 @@ def put_record(
         user=user,
         update_dpop_pds_nonce=update_dpop_pds_nonce,
     )
-    if not response or not response.ok:
+    if not response or not response.is_success:
         app.logger.warning("PDS HTTP ERROR")
