@@ -190,6 +190,11 @@ def oauth_metadata():
             "token_endpoint_auth_method": "private_key_jwt",
             "token_endpoint_auth_signing_alg": "ES256",
             "jwks_uri": f"https://{host}{jwks_endpoint}",
+            # optional
+            "client_name": "ligo.at",
+            "client_uri": f"https://{host}",
+            "logo_uri": f"https://{host}{url_for('static', filename='favicon-48.png')}",
+            "tos_uri": f"https://{host}{url_for('page_terms')}",
         }
     )
 
@@ -223,7 +228,7 @@ def delete_auth_session(session: SessionMixin):
 def get_auth_request(session: SessionMixin) -> OAuthAuthRequest | None:
     try:
         return OAuthAuthRequest(**session["oauth_auth_request"])
-    except TypeError as exception:
+    except (KeyError, TypeError) as exception:
         current_app.logger.debug("unable to load oauth_auth_request")
         current_app.logger.debug(exception)
         return None
@@ -232,7 +237,7 @@ def get_auth_request(session: SessionMixin) -> OAuthAuthRequest | None:
 def get_auth_session(session: SessionMixin) -> OAuthSession | None:
     try:
         return OAuthSession(**session["oauth_auth_session"])
-    except TypeError as exception:
+    except (KeyError, TypeError) as exception:
         current_app.logger.debug("unable to load oauth_auth_session")
         current_app.logger.debug(exception)
         return None
