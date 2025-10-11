@@ -7,4 +7,4 @@ debug:
 
 .PHONY: run
 run:
-	uv run -- dotenv run -- gunicorn -w 4 --bind ':$(PORT)' 'src.main:app'
+	uv run -- dotenv run -- gunicorn
