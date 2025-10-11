@@ -1,6 +1,46 @@
+from abc import ABC, abstractmethod
+from typing import override
 from flask import Flask, g
 
 import sqlite3
+from sqlite3 import Connection
+
+
+class KV(ABC):
+    @abstractmethod
+    def get(self, key: str) -> str | None:
+        pass
+
+    @abstractmethod
+    def set(self, key: str, value: str):
+        pass
+
+
+class Keyval(KV):
+    db: Connection
+    prefix: str
+
+    def __init__(self, app: Flask, prefix: str):
+        self.db = get_db(app)
+        self.prefix = prefix
+
+    @override
+    def get(self, key: str) -> str | None:
+        cursor = self.db.cursor()
+        row = cursor.execute(
+            "select value from keyval where prefix = ? and key = ?",
+            (self.prefix, key),
+        ).fetchone()
+        return None if row is None else row["value"]
+
+    @override
+    def set(self, key: str, value: str):
+        cursor = self.db.cursor()
+        _ = cursor.execute(
+            "insert or replace into keyval (prefix, key, value) values (?, ?, ?)",
+            (self.prefix, key, value),
+        )
+        self.db.commit()
 
 
 def get_db(app: Flask) -> sqlite3.Connection:

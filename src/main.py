@@ -10,7 +10,7 @@ from .atproto import (
     resolve_pds_from_did,
 )
 from .atproto.oauth import pds_authed_req
-from .db import close_db_connection, init_db
+from .db import Keyval, close_db_connection, init_db
 from .oauth import get_auth_session, oauth, save_auth_session
 from .types import OAuthSession
 
@@ -18,9 +18,6 @@ app = Flask(__name__)
 _ = app.config.from_prefixed_env()
 app.register_blueprint(oauth)
 init_db(app)
-
-links: dict[str, list[dict[str, str]]] = {}
-profiles: dict[str, tuple[str, str]] = {}
 
 SCHEMA = "at.ligo"
 
@@ -55,15 +52,16 @@ def page_profile_with_did(did: str):
 @app.get("/@<string:handle>")
 def page_profile_with_handle(handle: str):
     reload = request.args.get("reload") is not None
-
-    did = resolve_did_from_handle(handle, reload=reload)
+    kv = Keyval(app, "did_from_handle")
+    did = resolve_did_from_handle(handle, kv, reload=reload)
     if did is None:
         return "did not found", 404
     return page_profile(did, reload=reload)
 
 
 def page_profile(did: str, reload: bool = False):
-    pds = resolve_pds_from_did(did, reload=reload)
+    kv = Keyval(app, "pds_from_did")
+    pds = resolve_pds_from_did(did, kv, reload=reload)
     if pds is None:
         return "pds not found", 404
     profile, _ = load_profile(pds, did, reload=reload)
@@ -195,41 +193,46 @@ def page_terms():
 
 
 def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]] | None:
-    if did in links and not reload:
-        app.logger.debug(f"returning cached links for {did}")
-        return links[did]
+    kv = Keyval(app, "links_from_did")
+    links = kv.get(did)
 
-    response = get_record(pds, did, f"{SCHEMA}.actor.links", "self")
-    if response is None:
+    if links is not None and not reload:
+        app.logger.debug(f"returning cached links for {did}")
+        return json.loads(links)
+
+    record = get_record(pds, did, f"{SCHEMA}.actor.links", "self")
+    if record is None:
         return None
 
-    record = json.loads(response)
-    links_ = record["value"]["links"]
+    links = record["links"]
     app.logger.debug(f"caching links for {did}")
-    links[did] = links_
-    return links_
+    kv.set(did, value=json.dumps(links))
+    return links
 
 
 def load_profile(
-    pds: str, did: str, reload: bool = False
+    pds: str,
+    did: str,
+    reload: bool = False,
 ) -> tuple[tuple[str, str] | None, bool]:
-    if did in profiles and not reload:
+    kv = Keyval(app, "profile_from_did")
+    profile = kv.get(did)
+
+    if profile is not None and not reload:
         app.logger.debug(f"returning cached profile for {did}")
-        return profiles[did], False
+        return json.loads(profile), False
 
     from_bluesky = False
-    response = get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
-    if response is None:
-        response = get_record(pds, did, "app.bsky.actor.profile", "self")
+    record = get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
+    if record is None:
+        record = get_record(pds, did, "app.bsky.actor.profile", "self")
         from_bluesky = True
-    if response is None:
+    if record is None:
         return None, False
 
-    record = json.loads(response)
-    value: dict[str, str] = record["value"]
-    profile = (value["displayName"], value["description"])
+    profile = (record["displayName"], record["description"])
     app.logger.debug(f"caching profile for {did}")
-    profiles[did] = profile
+    kv.set(did, value=json.dumps(profile))
     return profile, from_bluesky
 
 

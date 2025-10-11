@@ -6,6 +6,8 @@ from urllib.parse import urlencode
 
 import json
 
+from .db import Keyval
+
 from .atproto import (
     is_valid_did,
     is_valid_handle,
@@ -28,9 +30,12 @@ def oauth_start():
     if not username:
         return redirect(url_for("page_login"), 303)
 
+    pdskv = Keyval(current_app, "authserver_from_pds")
+
     if is_valid_handle(username) or is_valid_did(username):
         login_hint = username
-        identity = resolve_identity(username)
+        kv = Keyval(current_app, "did_from_handle")
+        identity = resolve_identity(username, didkv=kv)
         if identity is None:
             return "couldnt resolve identity", 500
         did, handle, doc = identity
@@ -38,14 +43,14 @@ def oauth_start():
         if not pds_url:
             return "pds not found", 404
         current_app.logger.debug(f"account PDS: {pds_url}")
-        authserver_url = resolve_authserver_from_pds(pds_url)
+        authserver_url = resolve_authserver_from_pds(pds_url, pdskv)
         if not authserver_url:
             return "authserver not found", 404
 
     elif username.startswith("https://") and is_safe_url(username):
         did, handle, pds_url = None, None, None
         login_hint = None
-        authserver_url = resolve_authserver_from_pds(username) or username
+        authserver_url = resolve_authserver_from_pds(username, pdskv) or username
 
     else:
         return "not a valid handle, did or auth server", 400
@@ -134,6 +139,9 @@ def oauth_callback():
 
     row = auth_request
 
+    didkv = Keyval(current_app, "did_from_handle")
+    authserverkv = Keyval(current_app, "authserver_from_pds")
+
     if row.did:
         # If we started with an account identifier, this is simple
         did, handle, pds_url = row.did, row.handle, row.pds_url
@@ -141,14 +149,14 @@ def oauth_callback():
     else:
         did = tokens.sub
         assert is_valid_did(did)
-        identity = resolve_identity(did)
+        identity = resolve_identity(did, didkv=didkv)
         if not identity:
             return "could not resolve identity", 500
         did, handle, did_doc = identity
         pds_url = pds_endpoint_from_doc(did_doc)
         if not pds_url:
             return "could not resolve pds", 500
-        authserver_url = resolve_authserver_from_pds(pds_url)
+        authserver_url = resolve_authserver_from_pds(pds_url, authserverkv)
         assert authserver_url == authserver_iss
 
     assert row.scope == tokens.scope
