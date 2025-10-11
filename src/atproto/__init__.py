@@ -1,4 +1,4 @@
-from dns.resolver import resolve as resolve_dns
+from dns.resolver import resolve as resolve_dns, NXDOMAIN
 from re import match as regex_match
 from typing import Any
 import httpx
@@ -88,7 +88,11 @@ def resolve_did_from_handle(handle: str, kv: KV, reload: bool = False) -> str | 
         print(f"returning cached did for {handle}")
         return did
 
-    answer = resolve_dns(f"_atproto.{handle}", "TXT")
+    try:
+        answer = resolve_dns(f"_atproto.{handle}", "TXT")
+    except NXDOMAIN:
+        return None
+
     for record in answer:
         value = str(record).replace('"', "")
         if value.startswith("did="):
