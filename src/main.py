@@ -1,6 +1,8 @@
+import asyncio
+import json
+
 from flask import Flask, g, session, redirect, render_template, request, url_for
 from typing import Any
-import json
 
 from .atproto import (
     PdsUrl,
@@ -41,34 +43,31 @@ def page_home():
     return render_template("index.html")
 
 
-@app.get("/did:<string:did>")
-def page_profile_with_did(did: str):
-    did = f"did:{did}"
-    if not is_valid_did(did):
-        return render_template("error.html", message="invalid did"), 400
-    return page_profile(did)
-
-
-@app.get("/@<string:handle>")
-def page_profile_with_handle(handle: str):
+@app.get("/<string:atid>")
+async def page_profile(atid: str):
     reload = request.args.get("reload") is not None
-    kv = KV(app, "did_from_handle")
-    did = resolve_did_from_handle(handle, kv, reload=reload)
-    if did is None:
-        return render_template("error.html", message="did not found"), 404
-    return page_profile(did, reload=reload)
 
+    if atid.startswith("@"):
+        handle = atid[1:].lower()
+        did = resolve_did_from_handle(handle, reload=reload)
+        if did is None:
+            return render_template("error.html", message="did not found"), 404
+    elif is_valid_did(atid):
+        did = atid
+    else:
+        return render_template("error.html", message="invalid did or handle"), 400
 
-def page_profile(did: str, reload: bool = False):
     if _is_did_blocked(did):
-        app.logger.debug(f"handling blocked did {did}")
         return render_template("error.html", message="profile not found"), 404
+
     kv = KV(app, "pds_from_did")
     pds = resolve_pds_from_did(did, kv, reload=reload)
     if pds is None:
         return render_template("error.html", message="pds not found"), 404
-    profile, _ = load_profile(pds, did, reload=reload)
-    links = load_links(pds, did, reload=reload)
+    (profile, _), links = await asyncio.gather(
+        load_profile(pds, did, reload=reload),
+        load_links(pds, did, reload=reload),
+    )
     if links is None:
         return render_template("error.html", message="profile not found"), 404
 
@@ -103,7 +102,7 @@ def auth_logout():
 
 
 @app.get("/editor")
-def page_editor():
+async def page_editor():
     user = get_user()
     if user is None:
         return redirect("/login")
@@ -112,15 +111,17 @@ def page_editor():
     pds: str = user.pds_url
     handle: str | None = user.handle
 
-    profile, from_bluesky = load_profile(pds, did, reload=True)
-    links = load_links(pds, did, reload=True) or [{"background": "#fa0"}]
+    (profile, from_bluesky), links = await asyncio.gather(
+        load_profile(pds, did, reload=True),
+        load_links(pds, did, reload=True),
+    )
 
     return render_template(
         "editor.html",
         handle=handle,
         profile=profile,
         profile_from_bluesky=from_bluesky,
-        links=json.dumps(links),
+        links=json.dumps(links or [{"background": "#fa0"}]),
     )
 
 
@@ -195,7 +196,11 @@ def page_terms():
     return "come back soon"
 
 
-def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]] | None:
+async def load_links(
+    pds: str,
+    did: str,
+    reload: bool = False,
+) -> list[dict[str, str]] | None:
     kv = KV(app, "links_from_did")
     links = kv.get(did)
 
@@ -203,7 +208,7 @@ def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]]
         app.logger.debug(f"returning cached links for {did}")
         return json.loads(links)
 
-    record = get_record(pds, did, f"{SCHEMA}.actor.links", "self")
+    record = await get_record(pds, did, f"{SCHEMA}.actor.links", "self")
     if record is None:
         return None
 
@@ -213,7 +218,7 @@ def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]]
     return links
 
 
-def load_profile(
+async def load_profile(
     pds: str,
     did: str,
     reload: bool = False,
@@ -226,9 +231,9 @@ def load_profile(
         return json.loads(profile), False
 
     from_bluesky = False
-    record = get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
+    record = await get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
     if record is None:
-        record = get_record(pds, did, "app.bsky.actor.profile", "self")
+        record = await get_record(pds, did, "app.bsky.actor.profile", "self")
         from_bluesky = True
     if record is None:
         return None, False

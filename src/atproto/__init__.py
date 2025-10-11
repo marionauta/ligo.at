@@ -194,7 +194,7 @@ def fetch_authserver_meta(authserver_url: str) -> dict[str, str] | None:
     return meta
 
 
-def get_record(
+async def get_record(
     pds: str,
     repo: str,
     collection: str,
@@ -202,14 +202,17 @@ def get_record(
     type: str | None = None,
 ) -> dict[str, Any] | None:
     """Retrieve record from PDS. Verifies type is the same as collection name."""
-    response = httpx.get(
-        f"{pds}/xrpc/com.atproto.repo.getRecord?repo={repo}&collection={collection}&rkey={record}"
-    )
-    if not response.is_success:
-        return None
-    parsed = response.json()
-    value: dict[str, Any] = parsed["value"]
-    if value["$type"] != (type or collection):
-        return None
-    del value["$type"]
-    return value
+
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{pds}/xrpc/com.atproto.repo.getRecord?repo={repo}&collection={collection}&rkey={record}"
+        )
+        if not response.is_success:
+            return None
+        parsed = response.json()
+        value: dict[str, Any] = parsed["value"]
+        if value["$type"] != (type or collection):
+            return None
+        del value["$type"]
+
+        return value
