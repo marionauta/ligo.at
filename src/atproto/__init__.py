@@ -3,7 +3,7 @@ from re import match as regex_match
 from typing import Any
 import httpx
 
-from ..db import KV
+from .kv import KV, nokv
 
 from .validator import is_valid_authserver_meta
 from ..security import is_safe_url
@@ -26,11 +26,14 @@ def is_valid_did(did: str) -> bool:
     return regex_match(DID_REGEX, did) is not None
 
 
-def resolve_identity(query: str, didkv: KV) -> tuple[str, str, dict[str, Any]] | None:
+def resolve_identity(
+    query: str,
+    didkv: KV = nokv,
+) -> tuple[str, str, dict[str, Any]] | None:
     """Resolves an identity to a DID, handle and DID document, verifies handles bi directionally."""
 
     if is_valid_handle(query):
-        handle = query
+        handle = query.lower()
         did = resolve_did_from_handle(handle, didkv)
         if not did:
             return None
@@ -62,7 +65,7 @@ def handles_from_doc(doc: dict[str, list[str]]) -> list[str]:
     handles: list[str] = []
     for aka in doc.get("alsoKnownAs", []):
         if aka.startswith("at://"):
-            handle = aka[5:]
+            handle = aka[5:].lower()
             if is_valid_handle(handle):
                 handles.append(handle)
     return handles
@@ -77,7 +80,11 @@ def handle_from_doc(doc: dict[str, list[str]]) -> str | None:
         return None
 
 
-def resolve_did_from_handle(handle: str, kv: KV, reload: bool = False) -> str | None:
+def resolve_did_from_handle(
+    handle: str,
+    kv: KV = nokv,
+    reload: bool = False,
+) -> str | None:
     """Returns the DID for a given handle"""
 
     if not is_valid_handle(handle):
@@ -114,7 +121,11 @@ def pds_endpoint_from_doc(doc: dict[str, list[dict[str, str]]]) -> str | None:
     return None
 
 
-def resolve_pds_from_did(did: DID, kv: KV, reload: bool = False) -> PdsUrl | None:
+def resolve_pds_from_did(
+    did: DID,
+    kv: KV = nokv,
+    reload: bool = False,
+) -> PdsUrl | None:
     pds = kv.get(did)
     if pds is not None and not reload:
         print(f"returning cached pds for {did}")
@@ -150,7 +161,7 @@ def resolve_doc_from_did(
 
 def resolve_authserver_from_pds(
     pds_url: PdsUrl,
-    kv: KV,
+    kv: KV = nokv,
     reload: bool = False,
 ) -> AuthserverUrl | None:
     """Returns the authserver URL for the PDS."""
@@ -189,6 +200,7 @@ def get_record(
     repo: str,
     collection: str,
     record: str,
+    type: str | None = None,
 ) -> dict[str, Any] | None:
     """Retrieve record from PDS. Verifies type is the same as collection name."""
     response = httpx.get(
@@ -198,7 +210,7 @@ def get_record(
         return None
     parsed = response.json()
     value: dict[str, Any] = parsed["value"]
-    if value["$type"] != collection:
+    if value["$type"] != (type or collection):
         return None
     del value["$type"]
     return value

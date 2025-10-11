@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import json
 
-from .db import Keyval
+from .db import KV, get_db
 
 from .atproto import (
     is_valid_did,
@@ -30,11 +30,12 @@ def oauth_start():
     if not username:
         return redirect(url_for("page_login"), 303)
 
-    pdskv = Keyval(current_app, "authserver_from_pds")
+    db = get_db(current_app)
+    pdskv = KV(db, "authserver_from_pds")
 
     if is_valid_handle(username) or is_valid_did(username):
         login_hint = username
-        kv = Keyval(current_app, "did_from_handle")
+        kv = KV(db, "did_from_handle")
         identity = resolve_identity(username, didkv=kv)
         if identity is None:
             return "couldnt resolve identity", 500
@@ -139,8 +140,9 @@ def oauth_callback():
 
     row = auth_request
 
-    didkv = Keyval(current_app, "did_from_handle")
-    authserverkv = Keyval(current_app, "authserver_from_pds")
+    db = get_db(current_app)
+    didkv = KV(db, "did_from_handle")
+    authserverkv = KV(db, "authserver_from_pds")
 
     if row.did:
         # If we started with an account identifier, this is simple

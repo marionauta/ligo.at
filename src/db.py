@@ -1,27 +1,18 @@
-from abc import ABC, abstractmethod
 from typing import override
 from flask import Flask, g
 
 import sqlite3
 from sqlite3 import Connection
 
-
-class KV(ABC):
-    @abstractmethod
-    def get(self, key: str) -> str | None:
-        pass
-
-    @abstractmethod
-    def set(self, key: str, value: str):
-        pass
+from .atproto.kv import KV as BaseKV
 
 
-class Keyval(KV):
+class KV(BaseKV):
     db: Connection
     prefix: str
 
-    def __init__(self, app: Flask, prefix: str):
-        self.db = get_db(app)
+    def __init__(self, app: Connection | Flask, prefix: str):
+        self.db = app if isinstance(app, Connection) else get_db(app)
         self.prefix = prefix
 
     @override

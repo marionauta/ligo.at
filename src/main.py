@@ -10,7 +10,7 @@ from .atproto import (
     resolve_pds_from_did,
 )
 from .atproto.oauth import pds_authed_req
-from .db import Keyval, close_db_connection, init_db
+from .db import KV, close_db_connection, init_db
 from .oauth import get_auth_session, oauth, save_auth_session
 from .types import OAuthSession
 
@@ -52,7 +52,7 @@ def page_profile_with_did(did: str):
 @app.get("/@<string:handle>")
 def page_profile_with_handle(handle: str):
     reload = request.args.get("reload") is not None
-    kv = Keyval(app, "did_from_handle")
+    kv = KV(app, "did_from_handle")
     did = resolve_did_from_handle(handle, kv, reload=reload)
     if did is None:
         return "did not found", 404
@@ -60,7 +60,7 @@ def page_profile_with_handle(handle: str):
 
 
 def page_profile(did: str, reload: bool = False):
-    kv = Keyval(app, "pds_from_did")
+    kv = KV(app, "pds_from_did")
     pds = resolve_pds_from_did(did, kv, reload=reload)
     if pds is None:
         return "pds not found", 404
@@ -193,7 +193,7 @@ def page_terms():
 
 
 def load_links(pds: str, did: str, reload: bool = False) -> list[dict[str, str]] | None:
-    kv = Keyval(app, "links_from_did")
+    kv = KV(app, "links_from_did")
     links = kv.get(did)
 
     if links is not None and not reload:
@@ -215,7 +215,7 @@ def load_profile(
     did: str,
     reload: bool = False,
 ) -> tuple[tuple[str, str] | None, bool]:
-    kv = Keyval(app, "profile_from_did")
+    kv = KV(app, "profile_from_did")
     profile = kv.get(did)
 
     if profile is not None and not reload:

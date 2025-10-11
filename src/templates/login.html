@@ -19,7 +19,7 @@
       <form action="{{ url_for('auth_login') }}" method="post">
         <label>
           <span>Handle</span>
-          <input type="text" name="username" placeholder="username.example.com" required />
+          <input type="text" name="username" placeholder="username.example.com" autocapitalize="off" autocomplete="off" spellcheck="false" required />
         </label>
         <span class="caption">
           Use your AT Protocol handle to log in.
