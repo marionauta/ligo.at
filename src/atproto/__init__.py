@@ -1,10 +1,9 @@
-from dns.resolver import resolve as resolve_dns, NXDOMAIN
+import dns.resolver as dns
+import httpx
 from re import match as regex_match
 from typing import Any
-import httpx
 
 from .kv import KV, nokv
-
 from .validator import is_valid_authserver_meta
 from ..security import is_safe_url
 
@@ -96,8 +95,8 @@ def resolve_did_from_handle(
         return did
 
     try:
-        answer = resolve_dns(f"_atproto.{handle}", "TXT")
-    except NXDOMAIN:
+        answer = dns.resolve(f"_atproto.{handle}", "TXT")
+    except dns.NXDOMAIN:
         return None
 
     for record in answer:

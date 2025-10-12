@@ -49,6 +49,10 @@ a {
     max-width: 25rem;
 }
 
+.wrapper.error p {
+    text-align: center;
+}
+
 header {
     margin: 2.5em 0;
     text-align: center;

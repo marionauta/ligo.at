@@ -45,7 +45,7 @@ def page_home():
 def page_profile_with_did(did: str):
     did = f"did:{did}"
     if not is_valid_did(did):
-        return "invalid did", 400
+        return render_template("error.html", message="invalid did"), 400
     return page_profile(did)
 
 
@@ -55,19 +55,22 @@ def page_profile_with_handle(handle: str):
     kv = KV(app, "did_from_handle")
     did = resolve_did_from_handle(handle, kv, reload=reload)
     if did is None:
-        return "did not found", 404
+        return render_template("error.html", message="did not found"), 404
     return page_profile(did, reload=reload)
 
 
 def page_profile(did: str, reload: bool = False):
+    if _is_did_blocked(did):
+        app.logger.debug(f"handling blocked did {did}")
+        return render_template("error.html", message="profile not found"), 404
     kv = KV(app, "pds_from_did")
     pds = resolve_pds_from_did(did, kv, reload=reload)
     if pds is None:
-        return "pds not found", 404
+        return render_template("error.html", message="pds not found"), 404
     profile, _ = load_profile(pds, did, reload=reload)
     links = load_links(pds, did, reload=reload)
     if links is None:
-        return "profile not found", 404
+        return render_template("error.html", message="profile not found"), 404
 
     if reload:
         # remove the ?reload parameter
@@ -265,3 +268,8 @@ def put_record(
     )
     if not response or not response.is_success:
         app.logger.warning("PDS HTTP ERROR")
+
+
+def _is_did_blocked(did: str) -> bool:
+    kv = KV(app, "blockeddids")
+    return kv.get(did) is not None
