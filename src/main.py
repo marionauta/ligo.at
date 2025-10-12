@@ -61,7 +61,7 @@ async def page_profile(atid: str):
         return render_template("error.html", message="profile not found"), 404
 
     kv = KV(app, "pds_from_did")
-    pds = resolve_pds_from_did(did, kv, reload=reload)
+    pds = await resolve_pds_from_did(did, kv, reload=reload)
     if pds is None:
         return render_template("error.html", message="pds not found"), 404
     (profile, _), links = await asyncio.gather(
@@ -126,7 +126,7 @@ async def page_editor():
 
 
 @app.post("/editor/profile")
-def post_editor_profile():
+async def post_editor_profile():
     user = get_user()
     if user is None:
         return redirect("/login", 303)
@@ -136,7 +136,7 @@ def post_editor_profile():
     if not display_name:
         return redirect("/editor", 303)
 
-    put_record(
+    await put_record(
         user=user,
         pds=user.pds_url,
         repo=user.did,
@@ -153,7 +153,7 @@ def post_editor_profile():
 
 
 @app.post("/editor/links")
-def post_editor_links():
+async def post_editor_links():
     user = get_user()
     if user is None:
         return redirect("/login", 303)
@@ -176,7 +176,7 @@ def post_editor_links():
             link["detail"] = detail
         links.append(link)
 
-    put_record(
+    await put_record(
         user=user,
         pds=user.pds_url,
         repo=user.did,
@@ -221,6 +221,7 @@ async def load_links(
 async def load_profile(
     pds: str,
     did: str,
+    fallback_with_bluesky: bool = True,
     reload: bool = False,
 ) -> tuple[tuple[str, str] | None, bool]:
     kv = KV(app, "profile_from_did")
@@ -232,7 +233,7 @@ async def load_profile(
 
     from_bluesky = False
     record = await get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
-    if record is None:
+    if record is None and fallback_with_bluesky:
         record = await get_record(pds, did, "app.bsky.actor.profile", "self")
         from_bluesky = True
     if record is None:
@@ -244,7 +245,8 @@ async def load_profile(
     return profile, from_bluesky
 
 
-def put_record(
+# TODO: move to .atproto
+async def put_record(
     user: OAuthSession,
     pds: PdsUrl,
     repo: str,
@@ -264,7 +266,7 @@ def put_record(
         session_ = user._replace(dpop_pds_nonce=nonce)
         save_auth_session(session, session_)
 
-    response = pds_authed_req(
+    response = await pds_authed_req(
         method="POST",
         url=endpoint,
         body=body,

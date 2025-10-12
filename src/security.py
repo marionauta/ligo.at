@@ -30,8 +30,8 @@ def is_safe_url(url: str) -> bool:
 
 
 class HardenedHttp:
-    def get_session(self) -> httpx.Client:
-        return httpx.Client(
+    def get_session(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
             timeout=httpx.Timeout(20, connect=5),
             follow_redirects=False,
             headers={

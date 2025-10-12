@@ -24,7 +24,7 @@ oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 
 
 @oauth.get("/start")
-def oauth_start():
+async def oauth_start():
     # Identity
     username = request.args.get("username") or request.args.get("authserver")
     if not username:
@@ -36,7 +36,7 @@ def oauth_start():
     if is_valid_handle(username) or is_valid_did(username):
         login_hint = username
         kv = KV(db, "did_from_handle")
-        identity = resolve_identity(username, didkv=kv)
+        identity = await resolve_identity(username, didkv=kv)
         if identity is None:
             return "couldnt resolve identity", 500
         did, handle, doc = identity
@@ -44,21 +44,21 @@ def oauth_start():
         if not pds_url:
             return "pds not found", 404
         current_app.logger.debug(f"account PDS: {pds_url}")
-        authserver_url = resolve_authserver_from_pds(pds_url, pdskv)
+        authserver_url = await resolve_authserver_from_pds(pds_url, pdskv)
         if not authserver_url:
             return "authserver not found", 404
 
     elif username.startswith("https://") and is_safe_url(username):
         did, handle, pds_url = None, None, None
         login_hint = None
-        authserver_url = resolve_authserver_from_pds(username, pdskv) or username
+        authserver_url = await resolve_authserver_from_pds(username, pdskv) or username
 
     else:
         return "not a valid handle, did or auth server", 400
 
     current_app.logger.debug(f"Authserver: {authserver_url}")
     assert is_safe_url(authserver_url)
-    authserver_meta = fetch_authserver_meta(authserver_url)
+    authserver_meta = await fetch_authserver_meta(authserver_url)
     if not authserver_meta:
         return "no authserver meta", 404
 
@@ -77,7 +77,7 @@ def oauth_start():
 
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
 
-    pkce_verifier, state, dpop_authserver_nonce, resp = send_par_auth_request(
+    pkce_verifier, state, dpop_authserver_nonce, resp = await send_par_auth_request(
         authserver_url,
         authserver_meta,
         login_hint,
@@ -87,9 +87,12 @@ def oauth_start():
         CLIENT_SECRET_JWK,
         dpop_private_jwk,
     )
+
     if resp.status_code == 400:
-        current_app.logger.debug(f"PAR HTTP 400: {resp.json()}")
-    resp.raise_for_status()
+        current_app.logger.debug("PAR request returned error 400")
+        current_app.logger.debug(resp.text)
+        return redirect(url_for("page_login"), 303)
+    _ = resp.raise_for_status()
 
     par_request_uri: str = resp.json()["request_uri"]
     current_app.logger.debug(f"saving oauth_auth_request to DB  state={state}")
@@ -114,7 +117,7 @@ def oauth_start():
 
 
 @oauth.get("/callback")
-def oauth_callback():
+async def oauth_callback():
     state = request.args["state"]
     authserver_iss = request.args["iss"]
     authorization_code = request.args["code"]
@@ -131,7 +134,7 @@ def oauth_callback():
 
     app_url = request.url_root.replace("http://", "https://")
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
-    tokens, dpop_authserver_nonce = initial_token_request(
+    tokens, dpop_authserver_nonce = await initial_token_request(
         auth_request,
         authorization_code,
         app_url,
@@ -151,14 +154,14 @@ def oauth_callback():
     else:
         did = tokens.sub
         assert is_valid_did(did)
-        identity = resolve_identity(did, didkv=didkv)
+        identity = await resolve_identity(did, didkv=didkv)
         if not identity:
             return "could not resolve identity", 500
         did, handle, did_doc = identity
         pds_url = pds_endpoint_from_doc(did_doc)
         if not pds_url:
             return "could not resolve pds", 500
-        authserver_url = resolve_authserver_from_pds(pds_url, authserverkv)
+        authserver_url = await resolve_authserver_from_pds(pds_url, authserverkv)
         assert authserver_url == authserver_iss
 
     assert row.scope == tokens.scope

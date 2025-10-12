@@ -25,7 +25,7 @@ def is_valid_did(did: str) -> bool:
     return regex_match(DID_REGEX, did) is not None
 
 
-def resolve_identity(
+async def resolve_identity(
     query: str,
     didkv: KV = nokv,
 ) -> tuple[str, str, dict[str, Any]] | None:
@@ -36,7 +36,7 @@ def resolve_identity(
         did = resolve_did_from_handle(handle, didkv)
         if not did:
             return None
-        doc = resolve_doc_from_did(did)
+        doc = await resolve_doc_from_did(did)
         if not doc:
             return None
         handles = handles_from_doc(doc)
@@ -46,7 +46,7 @@ def resolve_identity(
 
     if is_valid_did(query):
         did = query
-        doc = resolve_doc_from_did(did)
+        doc = await resolve_doc_from_did(did)
         if not doc:
             return None
         handle = handle_from_doc(doc)
@@ -120,7 +120,7 @@ def pds_endpoint_from_doc(doc: dict[str, list[dict[str, str]]]) -> str | None:
     return None
 
 
-def resolve_pds_from_did(
+async def resolve_pds_from_did(
     did: DID,
     kv: KV = nokv,
     reload: bool = False,
@@ -130,7 +130,7 @@ def resolve_pds_from_did(
         print(f"returning cached pds for {did}")
         return pds
 
-    doc = resolve_doc_from_did(did)
+    doc = await resolve_doc_from_did(did)
     if doc is None:
         return None
     pds = doc["service"][0]["serviceEndpoint"]
@@ -141,24 +141,25 @@ def resolve_pds_from_did(
     return pds
 
 
-def resolve_doc_from_did(
+async def resolve_doc_from_did(
     did: DID,
     directory: str = PLC_DIRECTORY,
 ) -> dict[str, Any] | None:
-    if did.startswith("did:plc:"):
-        response = httpx.get(f"{directory}/{did}")
-        if response.is_success:
-            return response.json()
-        return None
+    async with httpx.AsyncClient() as client:
+        if did.startswith("did:plc:"):
+            response = await client.get(f"{directory}/{did}")
+            if response.is_success:
+                return response.json()
+            return None
 
-    if did.startswith("did:web:"):
-        # TODO: resolve did:web
-        return None
+        if did.startswith("did:web:"):
+            # TODO: resolve did:web
+            return None
 
     return None
 
 
-def resolve_authserver_from_pds(
+async def resolve_authserver_from_pds(
     pds_url: PdsUrl,
     kv: KV = nokv,
     reload: bool = False,
@@ -172,26 +173,28 @@ def resolve_authserver_from_pds(
 
     assert is_safe_url(pds_url)
     endpoint = f"{pds_url}/.well-known/oauth-protected-resource"
-    response = httpx.get(endpoint)
-    if response.status_code != 200:
-        return None
-    parsed: dict[str, list[str]] = response.json()
-    authserver_url = parsed["authorization_servers"][0]
-    print(f"caching authserver {authserver_url} for PDS {pds_url}")
-    kv.set(pds_url, value=authserver_url)
-    return authserver_url
+    async with httpx.AsyncClient() as client:
+        response = await client.get(endpoint)
+        if response.status_code != 200:
+            return None
+        parsed: dict[str, list[str]] = response.json()
+        authserver_url = parsed["authorization_servers"][0]
+        print(f"caching authserver {authserver_url} for PDS {pds_url}")
+        kv.set(pds_url, value=authserver_url)
+        return authserver_url
 
 
-def fetch_authserver_meta(authserver_url: str) -> dict[str, str] | None:
+async def fetch_authserver_meta(authserver_url: str) -> dict[str, str] | None:
     """Returns metadata from the authserver"""
     assert is_safe_url(authserver_url)
     endpoint = f"{authserver_url}/.well-known/oauth-authorization-server"
-    response = httpx.get(endpoint)
-    if not response.is_success:
-        return None
-    meta: dict[str, Any] = response.json()
-    assert is_valid_authserver_meta(meta, authserver_url)
-    return meta
+    async with httpx.AsyncClient() as client:
+        response = await client.get(endpoint)
+        if not response.is_success:
+            return None
+        meta: dict[str, Any] = response.json()
+        assert is_valid_authserver_meta(meta, authserver_url)
+        return meta
 
 
 async def get_record(

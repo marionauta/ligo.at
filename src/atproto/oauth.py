@@ -1,9 +1,8 @@
 from typing import Any, Callable, NamedTuple
 import time
 import json
-from authlib.jose import JsonWebKey, Key
+from authlib.jose import JsonWebKey, Key, jwt
 from authlib.common.security import generate_token
-from authlib.jose import jwt
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 from httpx import Response
 
@@ -26,7 +25,7 @@ class OAuthTokens(NamedTuple):
 
 # Prepares and sends a pushed auth request (PAR) via HTTP POST to the Authorization Server.
 # Returns "state" id HTTP response on success, without checking HTTP response status
-def send_par_auth_request(
+async def send_par_auth_request(
     authserver_url: str,
     authserver_meta: dict[str, str],
     login_hint: str | None,
@@ -71,8 +70,8 @@ def send_par_auth_request(
 
     # IMPORTANT: Pushed Authorization Request URL is untrusted input, SSRF mitigations are needed
     assert is_safe_url(par_url)
-    with hardened_http.get_session() as sess:
-        resp = sess.post(
+    async with hardened_http.get_session() as session:
+        resp = await session.post(
             par_url,
             headers={
                 "Content-Type": "application/x-www-form-urlencoded",
@@ -88,8 +87,8 @@ def send_par_auth_request(
         dpop_proof = _authserver_dpop_jwt(
             "POST", par_url, dpop_authserver_nonce, dpop_private_jwk
         )
-        with hardened_http.get_session() as sess:
-            resp = sess.post(
+        async with hardened_http.get_session() as session:
+            resp = await session.post(
                 par_url,
                 headers={
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -104,7 +103,7 @@ def send_par_auth_request(
 # Completes the auth flow by sending an initial auth token request.
 # Returns token response (OAuthTokens) and DPoP nonce (str)
 # IMPORTANT: the 'tokens.sub' field must be verified against the original request by code calling this function.
-def initial_token_request(
+async def initial_token_request(
     auth_request: OAuthAuthRequest,
     code: str,
     app_url: str,
@@ -113,7 +112,7 @@ def initial_token_request(
     authserver_url = auth_request.authserver_iss
 
     # Re-fetch server metadata
-    authserver_meta = fetch_authserver_meta(authserver_url)
+    authserver_meta = await fetch_authserver_meta(authserver_url)
     if not authserver_meta:
         raise Exception("missing authserver meta")
 
@@ -146,8 +145,8 @@ def initial_token_request(
 
     # IMPORTANT: Token URL is untrusted input, SSRF mitigations are needed
     assert is_safe_url(token_url)
-    with hardened_http.get_session() as sess:
-        resp = sess.post(token_url, data=params, headers={"DPoP": dpop_proof})
+    async with hardened_http.get_session() as session:
+        resp = await session.post(token_url, data=params, headers={"DPoP": dpop_proof})
 
     # Handle DPoP missing/invalid nonce error by retrying with server-provided nonce
     if resp.status_code == 400 and resp.json()["error"] == "use_dpop_nonce":
@@ -157,8 +156,12 @@ def initial_token_request(
         dpop_proof = _authserver_dpop_jwt(
             "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
         )
-        with hardened_http.get_session() as sess:
-            resp = sess.post(token_url, data=params, headers={"DPoP": dpop_proof})
+        async with hardened_http.get_session() as session:
+            resp = await session.post(
+                token_url,
+                data=params,
+                headers={"DPoP": dpop_proof},
+            )
 
     resp.raise_for_status()
     token_body = resp.json()
@@ -168,7 +171,7 @@ def initial_token_request(
 
 
 # Returns token response (OAuthTokens) and DPoP nonce (str)
-def refresh_token_request(
+async def refresh_token_request(
     user: OAuthSession,
     app_url: str,
     client_secret_jwk: Key,
@@ -176,7 +179,7 @@ def refresh_token_request(
     authserver_url = user.authserver_iss
 
     # Re-fetch server metadata
-    authserver_meta = fetch_authserver_meta(authserver_url)
+    authserver_meta = await fetch_authserver_meta(authserver_url)
     if not authserver_meta:
         raise Exception("missing authserver meta")
 
@@ -206,8 +209,8 @@ def refresh_token_request(
 
     # IMPORTANT: Token URL is untrusted input, SSRF mitigations are needed
     assert is_safe_url(token_url)
-    with hardened_http.get_session() as sess:
-        resp = sess.post(token_url, data=params, headers={"DPoP": dpop_proof})
+    async with hardened_http.get_session() as session:
+        resp = await session.post(token_url, data=params, headers={"DPoP": dpop_proof})
 
     # Handle DPoP missing/invalid nonce error by retrying with server-provided nonce
     if resp.status_code == 400 and resp.json()["error"] == "use_dpop_nonce":
@@ -217,8 +220,10 @@ def refresh_token_request(
         dpop_proof = _authserver_dpop_jwt(
             "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
         )
-        with hardened_http.get_session() as sess:
-            resp = sess.post(token_url, data=params, headers={"DPoP": dpop_proof})
+        async with hardened_http.get_session() as session:
+            resp = await session.post(
+                token_url, data=params, headers={"DPoP": dpop_proof}
+            )
 
     if resp.status_code not in [200, 201]:
         print(f"Token Refresh Error: {resp.json()}")
@@ -232,7 +237,7 @@ def refresh_token_request(
 
 # Helper to demonstrate making a request (HTTP GET or POST) to the user's PDS ("Resource Server" in OAuth terminology) using DPoP and access token.
 # This method returns a 'requests' reponse, without checking status code.
-def pds_authed_req(
+async def pds_authed_req(
     method: str,
     url: str,
     user: OAuthSession,
@@ -255,8 +260,8 @@ def pds_authed_req(
             dpop_private_jwk,
         )
 
-        with hardened_http.get_session() as sess:
-            response = sess.post(
+        async with hardened_http.get_session() as session:
+            response = await session.post(
                 url,
                 headers={
                     "Authorization": f"DPoP {access_token}",
