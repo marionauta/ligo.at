@@ -23,12 +23,12 @@
         {% for link in links %}
         <li style="color: {{ link.background }}">
           <a href="{{ link.url }}">
-            <link-item>
-              <link-item-title>{{ link.title }}</link-item-title>
+            <div class="link-item">
+              <span class="link-item-title">{{ link.title }}</span>
               {% if link.detail %}
-              <link-item-detail>{{ link.detail }}</link-item-detail>
+              <span class="link-item-detail">{{ link.detail }}</span>
               {% endif %}
-            </link-item>
+            </div><!-- .link-item -->
           </a>
         </li>
         {% endfor %}

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='editor.css') }}" />
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
     <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon-48.png') }}" />
@@ -62,10 +63,10 @@
           <template x-for="(link, index) in links">
             <link-editor-item x-data="{ editing: !link.url }" x-sort:item="link.url">
               <link-editor-header>
-                <link-item class="static" :style="'color: ' + link.background">
-                  <link-item-title x-text="link.title"></link-item-title>
-                  <link-item-detail x-show="link.detail" x-text="link.detail"></link-item-detail>
-                </link-item>
+                <div class="static link-item" :style="'color: ' + link.background">
+                  <span class="link-item-title" x-text="link.title"></span>
+                  <span class="link-item-detail" x-show="link.detail" x-text="link.detail"></span>
+                </div>
                 <link-editor-drag-handle x-sort:handle>⠿</link-editor-drag-handle>
               </link-editor-header>
               <div x-show="!editing">

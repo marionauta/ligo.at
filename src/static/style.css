@@ -80,24 +80,24 @@ ul {
     padding: 0;
 }
 
-link-item {
+.link-item {
     background: currentColor;
     display: block;
     flex-grow: 1;
-    transition: transform 0.1s;
-    text-align: center;
     padding: 0.5em;
+    text-align: center;
+    transition: transform 0.1s;
 }
 
-link-item:not(.static) {
+.link-item:not(.static) {
     box-shadow: -3px 3px 0 rgba(from currentColor r g b / 0.6);
 }
 
-link-item-title {
+.link-item-title {
     color: white;
 }
 
-link-item link-item-detail {
+.link-item .link-item-detail {
     color: white;
     display: block;
     font-size: 0.75em;
@@ -105,15 +105,15 @@ link-item link-item-detail {
     transition: opacity 0.3s;
 }
 
-link-item:not(.static):hover {
+.link-item:not(.static):hover {
     transform: scale(1.05);
 
-    & link-item-detail {
+    & .link-item-detail {
         opacity: 1;
     }
 }
 
-li:has(link-item) + li:has(link-item) {
+li:has(.link-item) + li:has(.link-item) {
     margin-top: 1rem;
 }
 
@@ -177,37 +177,4 @@ footer {
     font-size: 14px;
     margin-top: 5em;
     text-align: center;
-}
-
-link-editor-item {
-    display: block;
-    margin-top: 1em;
-    margin-left: -0.25em;
-    margin-right: -0.25em;
-    padding: 0.25em;
-    border: 1px solid var(--color-border-secondary);
-    border-radius: 2px;
-}
-
-link-editor-header {
-    display: flex;
-    flex-direction: row;
-    gap: 0.25em;
-}
-
-link-editor-drag-handle {
-    background: var(--color-background-secondary);
-    display: flex;
-    flex-grow: 0;
-    padding: 2px;
-    line-height: 100%;
-    font-size: 1.5em;
-    align-items: center;
-}
-
-link-editor-buttons {
-    display: flex;
-    flex-direction: row;
-    gap: 0.25em;
-    margin-top: 0.25em;
 }
