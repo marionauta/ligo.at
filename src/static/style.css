@@ -1,5 +1,5 @@
 :root {
-    --color-alert: #aa0000;
+    --color-alert: #ee0000;
     --color-background: #fff;
     --color-background-secondary: #eee;
     --color-border: #bbb;
@@ -128,8 +128,11 @@ li a {
 }
 
 .caption {
-    font-size: 14px;
-    line-height: 12px;
+    font-size: 0.8em;
+    line-height: 86%;
+}
+
+.faded {
     color: var(--color-text-secondary);
 }
 

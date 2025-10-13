@@ -75,7 +75,8 @@ async def page_profile(atid: str):
         # remove the ?reload parameter
         return redirect(request.path)
 
-    return render_template("profile.html", profile=profile, links=links)
+    athref = f"at://{did}/at.ligo.actor.links/self"
+    return render_template("profile.html", profile=profile, links=links, athref=athref)
 
 
 @app.get("/login")

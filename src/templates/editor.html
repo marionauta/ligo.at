@@ -38,7 +38,7 @@
         </label>
         {% if profile_from_bluesky %}
         <p>
-          <span class="caption">Profile was fetched from Bluesky. On save it will use an independent, ligo.at only copy.</span>
+          <span class="faded caption">Profile was fetched from Bluesky. On save it will use an independent, ligo.at only copy.</span>
         </p>
         {% endif %}
         <label>
@@ -47,15 +47,17 @@
       </form>
       <!-- /editor/profile -->
 
-      <h2>links</h2>
-      <template x-if="linksChanged">
-        <p>
+      <div>
+        <h2 style="display: inline-block;">links</h2>
+        <template x-if="linksChanged">
           <span class="alert">You have unsaved changes!</span>
-        </p>
-      </template>
+        </template>
+      </div>
+
       <noscript>
         JavaScript is needed for a better experience configuring the links.
       </noscript>
+
       <form action="/editor/links" method="post" @change="linksChanged = true">
         <input type="submit" value="save links" />
 
@@ -92,7 +94,7 @@
                   <span>Background color</span>
                   <input type="color" name="link-background" x-model="link.background" required />
                 </label>
-                <button type="button" @click="editing = false">ok</button>
+                <button type="button" @click="editing = false" style="margin-top: 1em;">close</button>
               </div>
             </link-editor-item>
           </template>
@@ -100,7 +102,7 @@
 
         <label style="display: block; margin-top: 1em;">
           <button type="button" @click="links.push({ background: '#fa0' })">add link</button>
-          <span class="caption">
+          <span class="faded caption">
             It will be added to the bottom. You can then drag and drop it to reorder.
           </span>
         </label>
@@ -108,6 +110,7 @@
         <input type="submit" value="save links" />
       </form>
       <!-- /editor/links -->
+
       <footer>
         <a href="/">home</a>
       </footer>
