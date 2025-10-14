@@ -9,6 +9,6 @@ debug:
 run:
 	uv run -- dotenv run -- gunicorn
 
-.PHONY: ingest
-ingest:
-	uv run -- src/ingest.py
+.PHONY: ingestor
+ingestor:
+	uv run -- ingestor

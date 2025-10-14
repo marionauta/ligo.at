@@ -3,7 +3,7 @@ Description = ligo.at jetstream ingestor
 After = ligoat.service
 
 [Service]
-ExecStart        = uv run -- src/ingest.py
+ExecStart        = uv run -- ingestor
 Type             = simple
 Restart          = always
 RestartSec       = 5s

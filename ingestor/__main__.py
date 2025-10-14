@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 async def ingest_jetstream(config: dict[str, str | None]):
-    socket = f"wss://{config['JETSTREAM_URL']}/subscribe"
+    base = config.get("JETSTREAM_URL", "jetstream1.us-east.bsky.network")
+    socket = f"wss://{base}/subscribe"
     socket += "?wantedCollections=at.ligo.*"
     logger.info(f"connecting to {socket}")
     async with aiohttp.ClientSession() as session:
