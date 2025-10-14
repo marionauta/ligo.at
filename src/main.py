@@ -49,7 +49,7 @@ async def page_profile(atid: str):
 
     if atid.startswith("@"):
         handle = atid[1:].lower()
-        did = resolve_did_from_handle(handle, reload=reload)
+        did = await resolve_did_from_handle(handle, reload=reload)
         if did is None:
             return render_template("error.html", message="did not found"), 404
     elif is_valid_did(atid):

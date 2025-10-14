@@ -1,5 +1,5 @@
 import aiohttp
-import dns.resolver as dns
+import aiodns
 from re import match as regex_match
 from typing import Any
 
@@ -33,7 +33,7 @@ async def resolve_identity(
 
     if is_valid_handle(query):
         handle = query.lower()
-        did = resolve_did_from_handle(handle, didkv)
+        did = await resolve_did_from_handle(handle, didkv)
         if not did:
             return None
         doc = await resolve_doc_from_did(did)
@@ -52,7 +52,7 @@ async def resolve_identity(
         handle = handle_from_doc(doc)
         if not handle:
             return None
-        if resolve_did_from_handle(handle, didkv) != did:
+        if await resolve_did_from_handle(handle, didkv) != did:
             return None
         return (did, handle, doc)
 
@@ -79,7 +79,7 @@ def handle_from_doc(doc: dict[str, list[str]]) -> str | None:
         return None
 
 
-def resolve_did_from_handle(
+async def resolve_did_from_handle(
     handle: str,
     kv: KV = nokv,
     reload: bool = False,
@@ -94,13 +94,14 @@ def resolve_did_from_handle(
         print(f"returning cached did for {handle}")
         return did
 
+    resolver = aiodns.DNSResolver()
     try:
-        answer = dns.resolve(f"_atproto.{handle}", "TXT")
-    except dns.NXDOMAIN:
+        result = await resolver.query(f"_atproto.{handle}", "TXT")
+    except aiodns.error.DNSError:
         return None
 
-    for record in answer:
-        value = str(record).replace('"', "")
+    for record in result:
+        value = str(record.text).replace('"', "")
         if value.startswith("did="):
             did = value[4:]
             if is_valid_did(did):
