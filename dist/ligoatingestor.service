@@ -1,0 +1,15 @@
+[Unit]
+Description = ligo.at jetstream ingestor
+After = ligoat.service
+
+[Service]
+ExecStart        = uv run -- src/ingest.py
+Type             = simple
+Restart          = always
+RestartSec       = 5s
+ReadWritePaths   = /var/www/ligoat
+WorkingDirectory = /var/www/ligoat
+EnvironmentFile  = /var/www/ligoat/.env
+
+[Install]
+WantedBy = multi-user.target

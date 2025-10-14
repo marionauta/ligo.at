@@ -1,0 +1,15 @@
+[Unit]
+Description = ligo.at
+After = network.target
+
+[Service]
+ExecStart        = uv run -- gunicorn
+Type             = simple
+Restart          = always
+RestartSec       = 5s
+ReadWritePaths   = /var/www/ligoat
+WorkingDirectory = /var/www/ligoat
+EnvironmentFile  = /var/www/ligoat/.env
+
+[Install]
+WantedBy = multi-user.target
