@@ -1,5 +1,5 @@
 from urllib.parse import urlparse
-import httpx
+import aiohttp
 
 
 # this is a crude/partial filter that looks at HTTPS URLs and checks if they seem "safe" for server-side requests (SSRF). This is only a partial mitigation, the actual HTTP client also needs to prevent other attacks and behaviors.
@@ -30,10 +30,9 @@ def is_safe_url(url: str) -> bool:
 
 
 class HardenedHttp:
-    def get_session(self) -> httpx.AsyncClient:
-        return httpx.AsyncClient(
-            timeout=httpx.Timeout(20, connect=5),
-            follow_redirects=False,
+    def get_session(self) -> aiohttp.ClientSession:
+        return aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(20, connect=5),
             headers={
                 "User-Agent": "ligo.at/0",
             },

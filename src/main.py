@@ -122,7 +122,7 @@ async def page_editor():
         handle=handle,
         profile=profile,
         profile_from_bluesky=from_bluesky,
-        links=json.dumps(links or [{"background": "#fa0"}]),
+        links=json.dumps(links or []),
     )
 
 
@@ -160,21 +160,20 @@ async def post_editor_links():
         return redirect("/login", 303)
 
     links: list[dict[str, str]] = []
-    urls = request.form.getlist("link-url")
+    hrefs = request.form.getlist("link-href")
     titles = request.form.getlist("link-title")
-    details = request.form.getlist("link-detail")
-    backgrounds = request.form.getlist("link-background")
-    for url, title, detail, background in zip(urls, titles, details, backgrounds):
-        if not url or not title or not background:
+    subtitles = request.form.getlist("link-subtitle")
+    backgrounds = request.form.getlist("link-background-color")
+    for href, title, subtitle, background in zip(hrefs, titles, subtitles, backgrounds):
+        if not href or not title or not background:
             break
         link: dict[str, str] = {
-            "url": url,
+            "href": href,
             "title": title,
-            "color": background,
-            "background": background,
+            "backgroundColor": background,
         }
-        if detail:
-            link["detail"] = detail
+        if subtitle:
+            link["subtitle"] = subtitle
         links.append(link)
 
     await put_record(
@@ -203,20 +202,19 @@ async def load_links(
     reload: bool = False,
 ) -> list[dict[str, str]] | None:
     kv = KV(app, "links_from_did")
-    links = kv.get(did)
+    recordstr = kv.get(did)
 
-    if links is not None and not reload:
+    if recordstr is not None and not reload:
         app.logger.debug(f"returning cached links for {did}")
-        return json.loads(links)
+        return json.loads(recordstr)["links"]
 
     record = await get_record(pds, did, f"{SCHEMA}.actor.links", "self")
     if record is None:
         return None
 
-    links = record["links"]
     app.logger.debug(f"caching links for {did}")
-    kv.set(did, value=json.dumps(links))
-    return links
+    kv.set(did, value=json.dumps(record))
+    return record["links"]
 
 
 async def load_profile(
@@ -224,13 +222,13 @@ async def load_profile(
     did: str,
     fallback_with_bluesky: bool = True,
     reload: bool = False,
-) -> tuple[tuple[str, str] | None, bool]:
+) -> tuple[dict[str, str] | None, bool]:
     kv = KV(app, "profile_from_did")
-    profile = kv.get(did)
+    recordstr = kv.get(did)
 
-    if profile is not None and not reload:
+    if recordstr is not None and not reload:
         app.logger.debug(f"returning cached profile for {did}")
-        return json.loads(profile), False
+        return json.loads(recordstr), False
 
     from_bluesky = False
     record = await get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
@@ -240,10 +238,9 @@ async def load_profile(
     if record is None:
         return None, False
 
-    profile = (record["displayName"], record["description"])
     app.logger.debug(f"caching profile for {did}")
-    kv.set(did, value=json.dumps(profile))
-    return profile, from_bluesky
+    kv.set(did, value=json.dumps(record))
+    return record, from_bluesky
 
 
 # TODO: move to .atproto
@@ -274,7 +271,7 @@ async def put_record(
         user=user,
         update_dpop_pds_nonce=update_dpop_pds_nonce,
     )
-    if not response or not response.is_success:
+    if not response or not response.ok:
         app.logger.warning("PDS HTTP ERROR")
 
 

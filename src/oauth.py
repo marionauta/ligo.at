@@ -88,13 +88,14 @@ async def oauth_start():
         dpop_private_jwk,
     )
 
-    if resp.status_code == 400:
+    if resp.status == 400:
         current_app.logger.debug("PAR request returned error 400")
         current_app.logger.debug(resp.text)
         return redirect(url_for("page_login"), 303)
     _ = resp.raise_for_status()
 
-    par_request_uri: str = resp.json()["request_uri"]
+    respjson: dict[str, str] = await resp.json()
+    par_request_uri: str = respjson["request_uri"]
     current_app.logger.debug(f"saving oauth_auth_request to DB  state={state}")
 
     oauth_request = OAuthAuthRequest(

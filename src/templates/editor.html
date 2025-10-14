@@ -30,11 +30,11 @@
       <form action="/editor/profile" method="post">
         <label>
           <span>Display name</span>
-          <input type="text" name="displayName" value="{{ profile.0 }}" required />
+          <input type="text" name="displayName" value="{{ profile.displayName }}" required />
         </label>
         <label>
           <span>Description</span>
-          <input type="text" name="description" value="{{ profile.1 }}" />
+          <input type="text" name="description" value="{{ profile.description }}" />
         </label>
         {% if profile_from_bluesky %}
         <p>
@@ -63,24 +63,24 @@
 
         <div x-sort x-sort:config="{ handle: '[x-sort\\:handle]' }">
           <template x-for="(link, index) in links">
-            <link-editor-item x-data="{ editing: !link.url }" x-sort:item="link.url">
+            <link-editor-item x-data="{ editing: !link.href }" x-sort:item="link.href">
               <link-editor-header>
-                <div class="static link-item" :style="'color: ' + link.background">
+                <div class="static link-item" :style="'color: ' + link.backgroundColor">
                   <span class="link-item-title" x-text="link.title"></span>
-                  <span class="link-item-detail" x-show="link.detail" x-text="link.detail"></span>
+                  <span class="link-item-detail" x-show="link.subtitle" x-text="link.subtitle"></span>
                 </div>
                 <link-editor-drag-handle x-sort:handle>⠿</link-editor-drag-handle>
               </link-editor-header>
               <div x-show="!editing">
                 <link-editor-buttons>
                   <button type="button" @click="editing = true">edit</button>
-                  <button type="button" @click="if (confirm('delete?')) links.splice(index, 1)">delete</button>
+                  <button type="button" @click="if (confirm('delete ' + link.title + '?')) links.splice(index, 1)">delete</button>
                 </link-editor-buttons>
               </div>
               <div x-show="editing">
                 <label>
                   <span>URL</span>
-                  <input type="text" name="link-url" x-model="link.url" required />
+                  <input type="text" name="link-href" x-model="link.href" required />
                 </label>
                 <label>
                   <span>Title</span>
@@ -88,11 +88,11 @@
                 </label>
                 <label>
                   <span>Subtitle</span>
-                  <input type="text" name="link-detail" x-model="link.detail" />
+                  <input type="text" name="link-subtitle" x-model="link.subtitle" />
                 </label>
                 <label>
                   <span>Background color</span>
-                  <input type="color" name="link-background" x-model="link.background" required />
+                  <input type="color" name="link-background-color" x-model="link.backgroundColor" required />
                 </label>
                 <button type="button" @click="editing = false" style="margin-top: 1em;">close</button>
               </div>
@@ -100,12 +100,16 @@
           </template>
         </div>
 
-        <label style="display: block; margin-top: 1em;">
-          <button type="button" @click="links.push({ background: '#fa0' })">add link</button>
-          <span class="faded caption">
-            It will be added to the bottom. You can then drag and drop it to reorder.
-          </span>
-        </label>
+        <template x-if="links.length === 0">
+          <p>
+            Nothing here! Add your first link, then the second, then...
+            You can always delete and sort them.
+          </p>
+        </template>
+
+        <button type="button" @click="links.push({ backgroundColor: '#A1D87E' })" style="display: block; margin-top: 1em;">
+          add link
+        </button>
 
         <input type="submit" value="save links" />
       </form>

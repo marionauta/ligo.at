@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Links for {{ profile.0 }}</title>
+    <title>Links for {{ profile.displayName }}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <base target="_blank" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
@@ -15,19 +15,19 @@
   <body>
     <div class="wrapper profile">
       <header>
-        <h1>{{ profile.0 }}</h1>
-        {% if profile.1 %}
-        <span class="tagline">{{ profile.1 }}</span>
+        <h1>{{ profile.displayName }}</h1>
+        {% if profile.description %}
+        <span class="tagline">{{ profile.description }}</span>
         {% endif %}
       </header>
       <ul>
         {% for link in links %}
-        <li style="color: {{ link.background }}">
-          <a href="{{ link.url }}">
+        <li style="color: {{ link.backgroundColor }}">
+          <a href="{{ link.href }}">
             <div class="link-item">
               <span class="link-item-title">{{ link.title }}</span>
-              {% if link.detail %}
-              <span class="link-item-detail">{{ link.detail }}</span>
+              {% if link.subtitle %}
+              <span class="link-item-detail">{{ link.subtitle }}</span>
               {% endif %}
             </div><!-- .link-item -->
           </a>
