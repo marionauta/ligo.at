@@ -8,3 +8,7 @@ debug:
 .PHONY: run
 run:
 	uv run -- dotenv run -- gunicorn
+
+.PHONY: ingest
+ingest:
+	uv run -- src/ingest.py
