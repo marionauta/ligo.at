@@ -2,7 +2,7 @@
 name = "ligo-at"
 version = "0.0.1"
 description = "Decentralized links page on top of AT Protocol"
-readme = "readme.md"
+readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "aiodns>=3.5.0",
