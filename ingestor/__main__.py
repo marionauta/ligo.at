@@ -1,37 +1,30 @@
 import sqlite3
-from typing import Any
-import aiohttp
 import asyncio
 import dotenv
 import json
 import logging
+from atproto_jetstream import Jetstream, JetstreamCommitEvent, JetstreamOptions
 
 logger = logging.getLogger(__name__)
 
 
 async def ingest_jetstream(config: dict[str, str | None]):
-    base = config.get("JETSTREAM_URL", "jetstream1.us-east.bsky.network")
-    socket = f"wss://{base}/subscribe"
-    socket += "?wantedCollections=at.ligo.*"
-    logger.info(f"connecting to {socket}")
-    async with aiohttp.ClientSession() as session:
-        async with session.ws_connect(socket) as ws:
-            async for message in ws:
-                if message.type == aiohttp.WSMsgType.TEXT:
-                    json = message.json()
-                    did = json["did"]
-                    if json["kind"] == "commit":
-                        handle_commit(did, json["commit"], config)
-                else:
-                    continue
+    url = config.get("JETSTREAM_URL") or "jetstream1.us-east.bsky.network"
+    options = JetstreamOptions(wanted_collections=["at.ligo.*"])
+    async with Jetstream(url, options) as stream:
+        async for event in stream:
+            if event.kind == "commit":
+                handle_commit(event.did, event.commit, config)
 
 
-def handle_commit(did: str, commit: dict[str, Any], config: dict[str, str | None]):
-    is_delete: bool = commit["operation"] == "delete"
-    collection: str = commit["collection"]
-    rkey: str = commit["rkey"]
+def handle_commit(
+    did: str,
+    commit: JetstreamCommitEvent.Commit,
+    config: dict[str, str | None],
+):
+    is_delete: bool = commit.operation == "delete"
 
-    if rkey != "self":
+    if commit.rkey != "self":
         return
 
     db = get_database(config)
@@ -41,7 +34,7 @@ def handle_commit(did: str, commit: dict[str, Any], config: dict[str, str | None
 
     prefix: str | None = None
     type: str | None = None
-    match collection:
+    match commit.collection:
         case "at.ligo.actor.profile":
             prefix = "profile_from_did"
             type = "at.ligo.actor.profile"
@@ -61,10 +54,9 @@ def handle_commit(did: str, commit: dict[str, Any], config: dict[str, str | None
         )
     else:
         logger.debug(f"creating or updating {prefix} for {did}")
-        record: dict[str, str] = commit["record"]
-        if record["$type"] != type:
+        if commit.record["$type"] != type:
             return
-        content = json.dumps(record)
+        content = json.dumps(commit.record)
         _ = cursor.execute(
             "insert or replace into keyval values (?, ?, ?)",
             (prefix, did, content),
@@ -76,9 +68,7 @@ def handle_commit(did: str, commit: dict[str, Any], config: dict[str, str | None
 
 
 def get_database(config: dict[str, str | None]) -> sqlite3.Connection | None:
-    database_name = config.get("FLASK_DATABASE_URL", "ligoat.db")
-    if not database_name:
-        return None
+    database_name = config.get("FLASK_DATABASE_URL") or "ligoat.db"
     return sqlite3.connect(database_name)
 
 
