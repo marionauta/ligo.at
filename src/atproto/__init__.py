@@ -84,7 +84,6 @@ async def resolve_did_from_handle(
 
     did = kv.get(handle)
     if did is not None and not reload:
-        print(f"returning cached did for {handle}")
         return did
 
     resolver = DNSResolver()
@@ -98,7 +97,6 @@ async def resolve_did_from_handle(
         if value.startswith("did="):
             did = value[4:]
             if is_valid_did(did):
-                print(f"caching did {did} for {handle}")
                 kv.set(handle, value=did)
                 return did
 
@@ -122,7 +120,6 @@ async def resolve_pds_from_did(
 ) -> PdsUrl | None:
     pds = kv.get(did)
     if pds is not None and not reload:
-        print(f"returning cached pds for {did}")
         return pds
 
     doc = await resolve_doc_from_did(client, did)
@@ -131,7 +128,6 @@ async def resolve_pds_from_did(
     pds = doc["service"][0]["serviceEndpoint"]
     if pds is None:
         return None
-    print(f"caching pds {pds} for {did}")
     kv.set(did, value=pds)
     return pds
 
@@ -165,7 +161,6 @@ async def resolve_authserver_from_pds(
 
     authserver_url = kv.get(pds_url)
     if authserver_url is not None and not reload:
-        print(f"returning cached authserver for PDS {pds_url}")
         return authserver_url
 
     assert is_safe_url(pds_url)
@@ -175,7 +170,6 @@ async def resolve_authserver_from_pds(
         return None
     parsed: dict[str, list[str]] = await response.json()
     authserver_url = parsed["authorization_servers"][0]
-    print(f"caching authserver {authserver_url} for PDS {pds_url}")
     kv.set(pds_url, value=authserver_url)
     return authserver_url
 

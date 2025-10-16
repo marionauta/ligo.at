@@ -13,9 +13,10 @@ from .atproto import (
     resolve_pds_from_did,
 )
 from .atproto.oauth import pds_authed_req
+from .atproto.types import OAuthSession
+from .auth import get_auth_session, save_auth_session
 from .db import KV, close_db_connection, get_db, init_db
-from .oauth import get_auth_session, oauth, save_auth_session
-from .types import OAuthSession
+from .oauth import oauth
 
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
@@ -49,8 +50,8 @@ async def page_profile(atid: str):
     reload = request.args.get("reload") is not None
 
     db = get_db(app)
-    didkv = KV(db, "did_from_handle")
-    pdskv = KV(db, "pds_from_did")
+    didkv = KV(db, app.logger, "did_from_handle")
+    pdskv = KV(db, app.logger, "pds_from_did")
 
     if atid.startswith("@"):
         handle = atid[1:].lower()
@@ -208,18 +209,16 @@ async def load_links(
     did: str,
     reload: bool = False,
 ) -> list[dict[str, str]] | None:
-    kv = KV(app, "links_from_did")
+    kv = KV(app, app.logger, "links_from_did")
     recordstr = kv.get(did)
 
     if recordstr is not None and not reload:
-        app.logger.debug(f"returning cached links for {did}")
         return json.loads(recordstr)["links"]
 
     record = await get_record(client, pds, did, f"{SCHEMA}.actor.links", "self")
     if record is None:
         return None
 
-    app.logger.debug(f"caching links for {did}")
     kv.set(did, value=json.dumps(record))
     return record["links"]
 
@@ -231,11 +230,10 @@ async def load_profile(
     fallback_with_bluesky: bool = True,
     reload: bool = False,
 ) -> tuple[dict[str, str] | None, bool]:
-    kv = KV(app, "profile_from_did")
+    kv = KV(app, app.logger, "profile_from_did")
     recordstr = kv.get(did)
 
     if recordstr is not None and not reload:
-        app.logger.debug(f"returning cached profile for {did}")
         return json.loads(recordstr), False
 
     from_bluesky = False
@@ -246,7 +244,6 @@ async def load_profile(
     if record is None:
         return None, False
 
-    app.logger.debug(f"caching profile for {did}")
     kv.set(did, value=json.dumps(record))
     return record, from_bluesky
 
@@ -284,5 +281,5 @@ async def put_record(
 
 
 def _is_did_blocked(did: str) -> bool:
-    kv = KV(app, "blockeddids")
+    kv = KV(app, app.logger, "blockeddids")
     return kv.get(did) is not None

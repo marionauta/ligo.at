@@ -1,5 +1,6 @@
-from typing import override
 from flask import Flask, g
+from logging import Logger
+from typing import override
 
 import sqlite3
 from sqlite3 import Connection
@@ -9,23 +10,29 @@ from .atproto.kv import KV as BaseKV
 
 class KV(BaseKV):
     db: Connection
+    logger: Logger
     prefix: str
 
-    def __init__(self, app: Connection | Flask, prefix: str):
+    def __init__(self, app: Connection | Flask, logger: Logger, prefix: str):
         self.db = app if isinstance(app, Connection) else get_db(app)
+        self.logger = logger
         self.prefix = prefix
 
     @override
     def get(self, key: str) -> str | None:
         cursor = self.db.cursor()
-        row = cursor.execute(
+        row: dict[str, str] | None = cursor.execute(
             "select value from keyval where prefix = ? and key = ?",
             (self.prefix, key),
         ).fetchone()
-        return None if row is None else row["value"]
+        if row is not None:
+            self.logger.debug(f"returning cached {self.prefix}({key})")
+            return row["value"]
+        return None
 
     @override
     def set(self, key: str, value: str):
+        self.logger.debug(f"caching {self.prefix}({key}): {value}")
         cursor = self.db.cursor()
         _ = cursor.execute(
             "insert or replace into keyval (prefix, key, value) values (?, ?, ?)",

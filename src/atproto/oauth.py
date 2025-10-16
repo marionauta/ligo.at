@@ -7,9 +7,7 @@ from authlib.common.security import generate_token
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 
 from . import fetch_authserver_meta
-
-from ..types import OAuthAuthRequest, OAuthSession
-
+from .types import OAuthAuthRequest, OAuthSession
 from ..security import is_safe_url, hardened_http
 
 
@@ -219,11 +217,12 @@ async def refresh_token_request(
                 token_url, data=params, headers={"DPoP": dpop_proof}
             )
 
+    respjson = await resp.json()
     if resp.status not in [200, 201]:
-        print(f"Token Refresh Error: {resp.json()}")
+        print(f"Token Refresh Error: {respjson}")
 
     resp.raise_for_status()
-    token_body = await resp.json()
+    token_body = respjson
     tokens = OAuthTokens(**token_body)
 
     return tokens, dpop_authserver_nonce

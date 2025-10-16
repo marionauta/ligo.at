@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from logging import Logger
 from typing import override
 
 
@@ -12,14 +13,18 @@ class KV(ABC):
         pass
 
 
-class NoKV(KV):
+class _NoKV(KV):
+    logger: Logger = Logger(__name__)
+
     @override
     def get(self, key: str) -> str | None:
+        self.logger.debug(f"NoKV get({key})")
         return None
 
     @override
     def set(self, key: str, value: str):
+        self.logger.debug(f"NoKV set({key}, {value})")
         pass
 
 
-nokv = NoKV()
+nokv = _NoKV()

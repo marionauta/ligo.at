@@ -1,14 +1,17 @@
 from aiohttp.client import ClientSession
 from authlib.jose import JsonWebKey, Key
 from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
-from flask.sessions import SessionMixin
-from typing import NamedTuple
 from urllib.parse import urlencode
 
 import json
 
+from .auth import (
+    delete_auth_request,
+    get_auth_request,
+    save_auth_request,
+    save_auth_session,
+)
 from .db import KV, get_db
-
 from .atproto import (
     is_valid_did,
     is_valid_handle,
@@ -18,8 +21,8 @@ from .atproto import (
     resolve_identity,
 )
 from .atproto.oauth import initial_token_request, send_par_auth_request
+from .atproto.types import OAuthAuthRequest, OAuthSession
 from .security import is_safe_url
-from .types import OAuthAuthRequest, OAuthSession
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 
@@ -32,13 +35,13 @@ async def oauth_start():
         return redirect(url_for("page_login"), 303)
 
     db = get_db(current_app)
-    pdskv = KV(db, "authserver_from_pds")
+    pdskv = KV(db, current_app.logger, "authserver_from_pds")
 
     client = ClientSession()
 
     if is_valid_handle(username) or is_valid_did(username):
         login_hint = username
-        kv = KV(db, "did_from_handle")
+        kv = KV(db, current_app.logger, "did_from_handle")
         identity = await resolve_identity(client, username, didkv=kv)
         if identity is None:
             return "couldnt resolve identity", 500
@@ -79,8 +82,8 @@ async def oauth_start():
     callback_endpoint = url_for("oauth.oauth_callback")
     redirect_uri = f"https://{host}{callback_endpoint}"
 
-    current_app.logger.debug(client_id)
-    current_app.logger.debug(redirect_uri)
+    current_app.logger.debug(f"client_id {client_id}")
+    current_app.logger.debug(f"redirect_uri {redirect_uri}")
 
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
 
@@ -96,8 +99,8 @@ async def oauth_start():
     )
 
     if resp.status == 400:
-        current_app.logger.debug("PAR request returned error 400")
-        current_app.logger.debug(resp.text)
+        current_app.logger.warning("PAR request returned error 400")
+        current_app.logger.warning(await resp.text())
         return redirect(url_for("page_login"), 303)
     _ = resp.raise_for_status()
 
@@ -155,8 +158,8 @@ async def oauth_callback():
     row = auth_request
 
     db = get_db(current_app)
-    didkv = KV(db, "did_from_handle")
-    authserverkv = KV(db, "authserver_from_pds")
+    didkv = KV(db, current_app.logger, "did_from_handle")
+    authserverkv = KV(db, current_app.logger, "authserver_from_pds")
 
     if row.did:
         # If we started with an account identifier, this is simple
@@ -234,48 +237,3 @@ def oauth_jwks():
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
     CLIENT_PUB_JWK = json.loads(CLIENT_SECRET_JWK.as_json(is_private=False))
     return jsonify({"keys": [CLIENT_PUB_JWK]})
-
-
-# Session storage
-
-
-def save_auth_request(session: SessionMixin, request: OAuthAuthRequest):
-    return _set_into_session(session, "oauth_auth_request", request)
-
-
-def save_auth_session(session: SessionMixin, auth_session: OAuthSession):
-    return _set_into_session(session, "oauth_auth_session", auth_session)
-
-
-def delete_auth_request(session: SessionMixin):
-    return _delete_from_session(session, "oauth_auth_request")
-
-
-def delete_auth_session(session: SessionMixin):
-    return _delete_from_session(session, "oauth_auth_session")
-
-
-def get_auth_request(session: SessionMixin) -> OAuthAuthRequest | None:
-    try:
-        return OAuthAuthRequest(**session["oauth_auth_request"])
-    except (KeyError, TypeError) as exception:
-        current_app.logger.debug("unable to load oauth_auth_request")
-        current_app.logger.debug(exception)
-        return None
-
-
-def get_auth_session(session: SessionMixin) -> OAuthSession | None:
-    try:
-        return OAuthSession(**session["oauth_auth_session"])
-    except (KeyError, TypeError) as exception:
-        current_app.logger.debug("unable to load oauth_auth_session")
-        current_app.logger.debug(exception)
-        return None
-
-
-def _set_into_session(session: SessionMixin, key: str, value: NamedTuple):
-    session[key] = value._asdict()
-
-
-def _delete_from_session(session: SessionMixin, key: str):
-    del session[key]
