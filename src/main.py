@@ -1,6 +1,7 @@
 import asyncio
 import json
 
+from aiohttp.client import ClientSession
 from flask import Flask, g, session, redirect, render_template, request, url_for
 from typing import Any
 
@@ -12,7 +13,7 @@ from .atproto import (
     resolve_pds_from_did,
 )
 from .atproto.oauth import pds_authed_req
-from .db import KV, close_db_connection, init_db
+from .db import KV, close_db_connection, get_db, init_db
 from .oauth import get_auth_session, oauth, save_auth_session
 from .types import OAuthSession
 
@@ -25,7 +26,7 @@ SCHEMA = "at.ligo"
 
 
 @app.before_request
-def load_user_to_context():
+async def load_user_to_context():
     g.user = get_auth_session(session)
 
 
@@ -34,7 +35,7 @@ def get_user() -> OAuthSession | None:
 
 
 @app.teardown_appcontext
-def app_teardown(exception: BaseException | None):
+async def app_teardown(exception: BaseException | None):
     close_db_connection(exception)
 
 
@@ -47,9 +48,13 @@ def page_home():
 async def page_profile(atid: str):
     reload = request.args.get("reload") is not None
 
+    db = get_db(app)
+    didkv = KV(db, "did_from_handle")
+    pdskv = KV(db, "pds_from_did")
+
     if atid.startswith("@"):
         handle = atid[1:].lower()
-        did = await resolve_did_from_handle(handle, reload=reload)
+        did = await resolve_did_from_handle(handle, kv=didkv, reload=reload)
         if did is None:
             return render_template("error.html", message="did not found"), 404
     elif is_valid_did(atid):
@@ -60,14 +65,14 @@ async def page_profile(atid: str):
     if _is_did_blocked(did):
         return render_template("error.html", message="profile not found"), 404
 
-    kv = KV(app, "pds_from_did")
-    pds = await resolve_pds_from_did(did, kv, reload=reload)
-    if pds is None:
-        return render_template("error.html", message="pds not found"), 404
-    (profile, _), links = await asyncio.gather(
-        load_profile(pds, did, reload=reload),
-        load_links(pds, did, reload=reload),
-    )
+    async with ClientSession() as client:
+        pds = await resolve_pds_from_did(client, did=did, kv=pdskv, reload=reload)
+        if pds is None:
+            return render_template("error.html", message="pds not found"), 404
+        (profile, _), links = await asyncio.gather(
+            load_profile(client, pds, did, reload=reload),
+            load_links(client, pds, did, reload=reload),
+        )
     if links is None:
         return render_template("error.html", message="profile not found"), 404
 
@@ -112,10 +117,11 @@ async def page_editor():
     pds: str = user.pds_url
     handle: str | None = user.handle
 
-    (profile, from_bluesky), links = await asyncio.gather(
-        load_profile(pds, did, reload=True),
-        load_links(pds, did, reload=True),
-    )
+    async with ClientSession() as client:
+        (profile, from_bluesky), links = await asyncio.gather(
+            load_profile(client, pds, did, reload=True),
+            load_links(client, pds, did, reload=True),
+        )
 
     return render_template(
         "editor.html",
@@ -197,6 +203,7 @@ def page_terms():
 
 
 async def load_links(
+    client: ClientSession,
     pds: str,
     did: str,
     reload: bool = False,
@@ -208,7 +215,7 @@ async def load_links(
         app.logger.debug(f"returning cached links for {did}")
         return json.loads(recordstr)["links"]
 
-    record = await get_record(pds, did, f"{SCHEMA}.actor.links", "self")
+    record = await get_record(client, pds, did, f"{SCHEMA}.actor.links", "self")
     if record is None:
         return None
 
@@ -218,6 +225,7 @@ async def load_links(
 
 
 async def load_profile(
+    client: ClientSession,
     pds: str,
     did: str,
     fallback_with_bluesky: bool = True,
@@ -231,9 +239,9 @@ async def load_profile(
         return json.loads(recordstr), False
 
     from_bluesky = False
-    record = await get_record(pds, did, f"{SCHEMA}.actor.profile", "self")
+    record = await get_record(client, pds, did, f"{SCHEMA}.actor.profile", "self")
     if record is None and fallback_with_bluesky:
-        record = await get_record(pds, did, "app.bsky.actor.profile", "self")
+        record = await get_record(client, pds, did, "app.bsky.actor.profile", "self")
         from_bluesky = True
     if record is None:
         return None, False

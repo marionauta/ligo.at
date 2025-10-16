@@ -1,5 +1,6 @@
-import aiohttp
-import aiodns
+from aiodns import DNSResolver, error as dns_error
+from aiohttp.client import ClientSession
+from os import getenv
 from re import match as regex_match
 from typing import Any
 
@@ -7,14 +8,14 @@ from .kv import KV, nokv
 from .validator import is_valid_authserver_meta
 from ..security import is_safe_url
 
-PLC_DIRECTORY = "https://plc.directory"
+PLC_DIRECTORY = getenv("PLC_DIRECTORY_URL") or "https://plc.directory"
 HANDLE_REGEX = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
 DID_REGEX = r"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$"
 
 
-AuthserverUrl = str
-PdsUrl = str
-DID = str
+type AuthserverUrl = str
+type PdsUrl = str
+type DID = str
 
 
 def is_valid_handle(handle: str) -> bool:
@@ -26,6 +27,7 @@ def is_valid_did(did: str) -> bool:
 
 
 async def resolve_identity(
+    client: ClientSession,
     query: str,
     didkv: KV = nokv,
 ) -> tuple[str, str, dict[str, Any]] | None:
@@ -36,17 +38,17 @@ async def resolve_identity(
         did = await resolve_did_from_handle(handle, didkv)
         if not did:
             return None
-        doc = await resolve_doc_from_did(did)
+        doc = await resolve_doc_from_did(client, did)
         if not doc:
             return None
-        handles = handles_from_doc(doc)
-        if not handles or handle not in handles:
+        doc_handle = handle_from_doc(doc)
+        if not doc_handle or doc_handle != handle:
             return None
         return (did, handle, doc)
 
     if is_valid_did(query):
         did = query
-        doc = await resolve_doc_from_did(did)
+        doc = await resolve_doc_from_did(client, did)
         if not doc:
             return None
         handle = handle_from_doc(doc)
@@ -59,24 +61,15 @@ async def resolve_identity(
     return None
 
 
-def handles_from_doc(doc: dict[str, list[str]]) -> list[str]:
+def handle_from_doc(doc: dict[str, list[str]]) -> str | None:
     """Return all possible handles inside the DID document."""
-    handles: list[str] = []
+
     for aka in doc.get("alsoKnownAs", []):
         if aka.startswith("at://"):
             handle = aka[5:].lower()
             if is_valid_handle(handle):
-                handles.append(handle)
-    return handles
-
-
-def handle_from_doc(doc: dict[str, list[str]]) -> str | None:
-    """Return the first handle inside the DID document."""
-    handles = handles_from_doc(doc)
-    try:
-        return handles[0]
-    except IndexError:
-        return None
+                return handle
+    return None
 
 
 async def resolve_did_from_handle(
@@ -94,10 +87,10 @@ async def resolve_did_from_handle(
         print(f"returning cached did for {handle}")
         return did
 
-    resolver = aiodns.DNSResolver()
+    resolver = DNSResolver()
     try:
         result = await resolver.query(f"_atproto.{handle}", "TXT")
-    except aiodns.error.DNSError:
+    except dns_error.DNSError:
         return None
 
     for record in result:
@@ -122,6 +115,7 @@ def pds_endpoint_from_doc(doc: dict[str, list[dict[str, str]]]) -> str | None:
 
 
 async def resolve_pds_from_did(
+    client: ClientSession,
     did: DID,
     kv: KV = nokv,
     reload: bool = False,
@@ -131,7 +125,7 @@ async def resolve_pds_from_did(
         print(f"returning cached pds for {did}")
         return pds
 
-    doc = await resolve_doc_from_did(did)
+    doc = await resolve_doc_from_did(client, did)
     if doc is None:
         return None
     pds = doc["service"][0]["serviceEndpoint"]
@@ -143,24 +137,26 @@ async def resolve_pds_from_did(
 
 
 async def resolve_doc_from_did(
+    client: ClientSession,
     did: DID,
-    directory: str = PLC_DIRECTORY,
 ) -> dict[str, Any] | None:
-    async with aiohttp.ClientSession() as client:
-        if did.startswith("did:plc:"):
-            response = await client.get(f"{directory}/{did}")
-            if response.ok:
-                return await response.json()
-            return None
+    """Returns the DID document"""
 
-        if did.startswith("did:web:"):
-            # TODO: resolve did:web
-            return None
+    if did.startswith("did:plc:"):
+        response = await client.get(f"{PLC_DIRECTORY}/{did}")
+        if response.ok:
+            return await response.json()
+        return None
+
+    if did.startswith("did:web:"):
+        # TODO: resolve did:web
+        raise Exception("resolve did:web")
 
     return None
 
 
 async def resolve_authserver_from_pds(
+    client: ClientSession,
     pds_url: PdsUrl,
     kv: KV = nokv,
     reload: bool = False,
@@ -174,31 +170,34 @@ async def resolve_authserver_from_pds(
 
     assert is_safe_url(pds_url)
     endpoint = f"{pds_url}/.well-known/oauth-protected-resource"
-    async with aiohttp.ClientSession() as client:
-        response = await client.get(endpoint)
-        if response.status != 200:
-            return None
-        parsed: dict[str, list[str]] = await response.json()
-        authserver_url = parsed["authorization_servers"][0]
-        print(f"caching authserver {authserver_url} for PDS {pds_url}")
-        kv.set(pds_url, value=authserver_url)
-        return authserver_url
+    response = await client.get(endpoint)
+    if response.status != 200:
+        return None
+    parsed: dict[str, list[str]] = await response.json()
+    authserver_url = parsed["authorization_servers"][0]
+    print(f"caching authserver {authserver_url} for PDS {pds_url}")
+    kv.set(pds_url, value=authserver_url)
+    return authserver_url
 
 
-async def fetch_authserver_meta(authserver_url: str) -> dict[str, str] | None:
+async def fetch_authserver_meta(
+    client: ClientSession,
+    authserver_url: str,
+) -> dict[str, str] | None:
     """Returns metadata from the authserver"""
+
     assert is_safe_url(authserver_url)
     endpoint = f"{authserver_url}/.well-known/oauth-authorization-server"
-    async with aiohttp.ClientSession() as client:
-        response = await client.get(endpoint)
-        if not response.ok:
-            return None
-        meta: dict[str, Any] = await response.json()
-        assert is_valid_authserver_meta(meta, authserver_url)
-        return meta
+    response = await client.get(endpoint)
+    if not response.ok:
+        return None
+    meta: dict[str, Any] = await response.json()
+    assert is_valid_authserver_meta(meta, authserver_url)
+    return meta
 
 
 async def get_record(
+    client: ClientSession,
     pds: str,
     repo: str,
     collection: str,
@@ -207,16 +206,14 @@ async def get_record(
 ) -> dict[str, Any] | None:
     """Retrieve record from PDS. Verifies type is the same as collection name."""
 
-    async with aiohttp.ClientSession() as client:
-        response = await client.get(
-            f"{pds}/xrpc/com.atproto.repo.getRecord?repo={repo}&collection={collection}&rkey={record}"
-        )
-        if not response.ok:
-            return None
-        parsed = await response.json()
-        value: dict[str, Any] = parsed["value"]
-        if value["$type"] != (type or collection):
-            return None
-        del value["$type"]
+    params = {"repo": repo, "collection": collection, "rkey": record}
+    response = await client.get(f"{pds}/xrpc/com.atproto.repo.getRecord", params=params)
+    if not response.ok:
+        return None
+    parsed = await response.json()
+    value: dict[str, Any] = parsed["value"]
+    if value["$type"] != (type or collection):
+        return None
+    del value["$type"]
 
-        return value
+    return value

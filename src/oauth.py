@@ -1,7 +1,8 @@
-from typing import NamedTuple
+from aiohttp.client import ClientSession
 from authlib.jose import JsonWebKey, Key
 from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
 from flask.sessions import SessionMixin
+from typing import NamedTuple
 from urllib.parse import urlencode
 
 import json
@@ -33,10 +34,12 @@ async def oauth_start():
     db = get_db(current_app)
     pdskv = KV(db, "authserver_from_pds")
 
+    client = ClientSession()
+
     if is_valid_handle(username) or is_valid_did(username):
         login_hint = username
         kv = KV(db, "did_from_handle")
-        identity = await resolve_identity(username, didkv=kv)
+        identity = await resolve_identity(client, username, didkv=kv)
         if identity is None:
             return "couldnt resolve identity", 500
         did, handle, doc = identity
@@ -44,23 +47,27 @@ async def oauth_start():
         if not pds_url:
             return "pds not found", 404
         current_app.logger.debug(f"account PDS: {pds_url}")
-        authserver_url = await resolve_authserver_from_pds(pds_url, pdskv)
+        authserver_url = await resolve_authserver_from_pds(client, pds_url, pdskv)
         if not authserver_url:
             return "authserver not found", 404
 
     elif username.startswith("https://") and is_safe_url(username):
         did, handle, pds_url = None, None, None
         login_hint = None
-        authserver_url = await resolve_authserver_from_pds(username, pdskv) or username
+        authserver_url = (
+            await resolve_authserver_from_pds(client, username, pdskv) or username
+        )
 
     else:
         return "not a valid handle, did or auth server", 400
 
     current_app.logger.debug(f"Authserver: {authserver_url}")
     assert is_safe_url(authserver_url)
-    authserver_meta = await fetch_authserver_meta(authserver_url)
+    authserver_meta = await fetch_authserver_meta(client, authserver_url)
     if not authserver_meta:
         return "no authserver meta", 404
+
+    await client.close()
 
     # Auth
     dpop_private_jwk: Key = JsonWebKey.generate_key("EC", "P-256", is_private=True)
@@ -133,9 +140,12 @@ async def oauth_callback():
     assert auth_request.authserver_iss == authserver_iss
     assert auth_request.state == state
 
+    client = ClientSession()
+
     app_url = request.url_root.replace("http://", "https://")
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
     tokens, dpop_authserver_nonce = await initial_token_request(
+        client,
         auth_request,
         authorization_code,
         app_url,
@@ -155,15 +165,21 @@ async def oauth_callback():
     else:
         did = tokens.sub
         assert is_valid_did(did)
-        identity = await resolve_identity(did, didkv=didkv)
+        identity = await resolve_identity(client, did, didkv=didkv)
         if not identity:
             return "could not resolve identity", 500
         did, handle, did_doc = identity
         pds_url = pds_endpoint_from_doc(did_doc)
         if not pds_url:
             return "could not resolve pds", 500
-        authserver_url = await resolve_authserver_from_pds(pds_url, authserverkv)
+        authserver_url = await resolve_authserver_from_pds(
+            client,
+            pds_url,
+            authserverkv,
+        )
         assert authserver_url == authserver_iss
+
+    await client.close()
 
     assert row.scope == tokens.scope
     assert pds_url is not None

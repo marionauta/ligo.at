@@ -1,10 +1,10 @@
 from typing import Any, Callable, NamedTuple
 import time
 import json
+from aiohttp.client import ClientSession, ClientResponse
 from authlib.jose import JsonWebKey, Key, jwt
 from authlib.common.security import generate_token
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
-from aiohttp import ClientResponse
 
 from . import fetch_authserver_meta
 
@@ -84,7 +84,6 @@ async def send_par_auth_request(
     respjson = await resp.json()
     if resp.status == 400 and respjson["error"] == "use_dpop_nonce":
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
-        print(f"retrying with new auth server DPoP nonce: {dpop_authserver_nonce}")
         dpop_proof = _authserver_dpop_jwt(
             "POST", par_url, dpop_authserver_nonce, dpop_private_jwk
         )
@@ -105,6 +104,7 @@ async def send_par_auth_request(
 # Returns token response (OAuthTokens) and DPoP nonce (str)
 # IMPORTANT: the 'tokens.sub' field must be verified against the original request by code calling this function.
 async def initial_token_request(
+    client: ClientSession,
     auth_request: OAuthAuthRequest,
     code: str,
     app_url: str,
@@ -113,7 +113,7 @@ async def initial_token_request(
     authserver_url = auth_request.authserver_iss
 
     # Re-fetch server metadata
-    authserver_meta = await fetch_authserver_meta(authserver_url)
+    authserver_meta = await fetch_authserver_meta(client, authserver_url)
     if not authserver_meta:
         raise Exception("missing authserver meta")
 
@@ -146,24 +146,16 @@ async def initial_token_request(
 
     # IMPORTANT: Token URL is untrusted input, SSRF mitigations are needed
     assert is_safe_url(token_url)
-    async with hardened_http.get_session() as session:
-        resp = await session.post(token_url, data=params, headers={"DPoP": dpop_proof})
 
+    resp = await client.post(token_url, data=params, headers={"DPoP": dpop_proof})
     # Handle DPoP missing/invalid nonce error by retrying with server-provided nonce
     respjson = await resp.json()
     if resp.status == 400 and respjson["error"] == "use_dpop_nonce":
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
-        print(f"retrying with new auth server DPoP nonce: {dpop_authserver_nonce}")
-        # print(server_nonce)
         dpop_proof = _authserver_dpop_jwt(
             "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
         )
-        async with hardened_http.get_session() as session:
-            resp = await session.post(
-                token_url,
-                data=params,
-                headers={"DPoP": dpop_proof},
-            )
+        resp = await client.post(token_url, data=params, headers={"DPoP": dpop_proof})
 
     resp.raise_for_status()
     token_body = await resp.json()
@@ -174,6 +166,7 @@ async def initial_token_request(
 
 # Returns token response (OAuthTokens) and DPoP nonce (str)
 async def refresh_token_request(
+    client: ClientSession,
     user: OAuthSession,
     app_url: str,
     client_secret_jwk: Key,
@@ -181,7 +174,7 @@ async def refresh_token_request(
     authserver_url = user.authserver_iss
 
     # Re-fetch server metadata
-    authserver_meta = await fetch_authserver_meta(authserver_url)
+    authserver_meta = await fetch_authserver_meta(client, authserver_url)
     if not authserver_meta:
         raise Exception("missing authserver meta")
 
@@ -218,8 +211,6 @@ async def refresh_token_request(
     respjson = await resp.json()
     if resp.status == 400 and respjson["error"] == "use_dpop_nonce":
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
-        print(f"retrying with new auth server DPoP nonce: {dpop_authserver_nonce}")
-        # print(server_nonce)
         dpop_proof = _authserver_dpop_jwt(
             "POST", token_url, dpop_authserver_nonce, dpop_private_jwk
         )
@@ -278,7 +269,6 @@ async def pds_authed_req(
         respjson = await response.json()
         if response.status in [400, 401] and respjson["error"] == "use_dpop_nonce":
             dpop_pds_nonce = response.headers["DPoP-Nonce"]
-            print(f"retrying with new PDS DPoP nonce: {dpop_pds_nonce}")
             update_dpop_pds_nonce(dpop_pds_nonce)
             continue
         break
