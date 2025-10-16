@@ -1,5 +1,5 @@
 .env:
-	uv run -- generate_secrets.py >> .env
+	uv run -- etc/generate_secrets.py >> .env
 
 .PHONY: debug
 debug:

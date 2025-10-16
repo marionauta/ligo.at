@@ -1,6 +1,6 @@
 # ligo.at
 
-A decentralized links page on top of [AT Protocol][atproto].
+Decentralized and customizable links page on top of [AT Protocol][atproto].
 
 ## dependencies
 
@@ -8,7 +8,7 @@ Install [uv][uv] and run `uv sync`.
 
 ## generate secrets
 
-Use the `generate_secrets.py` script or run `make .env`.
+Use the `etc/generate_secrets.py` script or run `make .env`.
 
 ## synchronization
 
@@ -20,10 +20,12 @@ Either start a debug server with `make debug` or a production one with `make run
 
 The Jetstream ingestor can be started with `make ingestor`.
 
-### systemd
+Some example configuration files are provided in the `etc` folder. They assume the code will live at `/var/www/ligoat`. Keep this in mind if you want to place it somewhere else.
 
-Two systemd service files are found in the `dist` folder. They can be used to run both the server and the jetstream ingestor.
+- A `Caddyfile` that configures a [caddy][caddy] reverse proxy.
+- Two systemd service files. They can be used to run both the server and the jetstream ingestor.
 
 [atproto]: https://atproto.com
-[uv]: https://docs.astral.sh/uv/
+[caddy]: https://caddyserver.com/
 [jetstream]: https://atproto.wiki/en/wiki/reference/networking/jetstream
+[uv]: https://docs.astral.sh/uv/

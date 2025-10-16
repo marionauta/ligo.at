@@ -1,6 +1,6 @@
 [Unit]
 Description = ligo.at jetstream ingestor
-After = ligoat.service
+After = network.target
 
 [Service]
 ExecStart        = uv run -- ingestor
