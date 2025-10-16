@@ -30,7 +30,6 @@ body {
     background: var(--color-background);
     color: var(--color-text);
     font-size: 18px;
-    line-height: 20px;
     font-family: "Inter", system-ui, sans-serif, ui-sans-serif;
     font-variation-settings: normal;
     font-weight: 400;
@@ -129,7 +128,6 @@ li a {
 
 .caption {
     font-size: 0.8em;
-    line-height: 86%;
 }
 
 .faded {

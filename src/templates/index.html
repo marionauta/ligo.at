@@ -14,17 +14,30 @@
     <div class="wrapper home">
       <header>
         <h1>ligo.at</h1>
+        <span class="tagline">alpha software</span><br>
         <span class="tagline">(noun) connection</span>
       </header>
       <p>
-        Get your own links page for all your social profiles. Decentralized thanks to
+        Get your own decentralized and personalizable links page for all your social profiles.
+        Build on top of
         <a href="https://atproto.com/">AT Protocol</a>.
       </p>
       <p>
-        Coming soon!
+        ligo.at is still in active development. Schemas and lexicons may change at any time.
+        If you want to give it a try:
+      </p>
+      <p>
+        <a href="{{ url_for('page_login') }}">login</a>
       </p>
       <footer>
-        Made by <a href="/@nauta.one">@nauta.one</a>
+        <p>
+          <a href="https://tangled.org/@ligo.at/core" target="_blank">source code</a>
+          <span>·</span>
+          <a href="{{ url_for('page_terms') }}">terms of service</a>
+        </p>
+        <p>
+          Made by <a href="/@nauta.one">@nauta.one</a><br />
+        </p>
       </footer>
     </div>
   </body>

@@ -199,7 +199,7 @@ async def post_editor_links():
 
 @app.get("/terms")
 def page_terms():
-    return "come back soon"
+    return render_template("terms.html")
 
 
 async def load_links(

@@ -25,10 +25,14 @@
           Use your AT Protocol handle to log in.
           If you're unsure you can <a href="{{ url_for('oauth.oauth_start', authserver='https://bsky.social') }}">log in with Bluesky</a>.
         </span>
-        <input type="submit" value="log in" />
+        <input type="submit" value="continue" />
       </form>
       <footer>
         <a href="/">home</a>
+        <span>·</span>
+        <a href="{{ url_for('page_terms') }}">terms of service</a>
+        <span>·</span>
+        <a href="https://tangled.org/@ligo.at/core" target="_blank">source code</a>
       </footer>
     </div>
     <!-- .wrapper -->
