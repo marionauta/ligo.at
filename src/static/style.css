@@ -179,3 +179,41 @@ footer {
     margin-top: 5em;
     text-align: center;
 }
+
+still-building {
+    background-color: var(--color-background-secondary);
+    border-radius: 2px;
+    display: block;
+}
+
+still-building .title {
+    background: repeating-linear-gradient(
+        45deg,
+        #fc0,
+        #fc0 20px,
+        #333 20px,
+        #333 40px
+    );
+    border-radius: 2px 2px 0 0;
+    color: #fff;
+    display: block;
+    font-size: 1.2em;
+    font-weight: 900;
+    padding: 0.25em;
+    text-align: center;
+    text-transform: uppercase;
+    text-shadow:
+        -1px -1px 0.5px #000,
+        1px -1px 0.5px #000,
+        -1px 1px 0.5px #000,
+        1px 1px 0.5px #000;
+}
+
+still-building p {
+    margin: 0;
+    padding: 0.5em;
+
+    &:not(:first-of-type) {
+        padding-top: 0;
+    }
+}
