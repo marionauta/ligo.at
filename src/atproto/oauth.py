@@ -77,9 +77,9 @@ async def send_par_auth_request(
             },
             data=par_body,
         )
+        respjson = await resp.json()
 
     # Handle DPoP missing/invalid nonce error by retrying with server-provided nonce
-    respjson = await resp.json()
     if resp.status == 400 and respjson["error"] == "use_dpop_nonce":
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
         dpop_proof = _authserver_dpop_jwt(
@@ -204,9 +204,9 @@ async def refresh_token_request(
     assert is_safe_url(token_url)
     async with hardened_http.get_session() as session:
         resp = await session.post(token_url, data=params, headers={"DPoP": dpop_proof})
+        respjson = await resp.json()
 
     # Handle DPoP missing/invalid nonce error by retrying with server-provided nonce
-    respjson = await resp.json()
     if resp.status == 400 and respjson["error"] == "use_dpop_nonce":
         dpop_authserver_nonce = resp.headers["DPoP-Nonce"]
         dpop_proof = _authserver_dpop_jwt(
@@ -216,8 +216,8 @@ async def refresh_token_request(
             resp = await session.post(
                 token_url, data=params, headers={"DPoP": dpop_proof}
             )
+            respjson = await resp.json()
 
-    respjson = await resp.json()
     if resp.status not in [200, 201]:
         print(f"Token Refresh Error: {respjson}")
 
