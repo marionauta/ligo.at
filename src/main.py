@@ -120,8 +120,8 @@ async def page_editor():
 
     async with ClientSession() as client:
         (profile, from_bluesky), links = await asyncio.gather(
-            load_profile(client, pds, did, reload=True),
-            load_links(client, pds, did, reload=True),
+            load_profile(client, pds, did),
+            load_links(client, pds, did),
         )
 
     return render_template(
@@ -140,24 +140,30 @@ async def post_editor_profile():
         return redirect("/login", 303)
 
     display_name = request.form.get("displayName")
-    description = request.form.get("description") or ""
+    description = request.form.get("description", "")
     if not display_name:
         return redirect("/editor", 303)
 
-    await put_record(
+    record = {
+        "$type": f"{SCHEMA}.actor.profile",
+        "displayName": display_name,
+        "description": description,
+    }
+
+    success = await put_record(
         user=user,
         pds=user.pds_url,
         repo=user.did,
         collection=f"{SCHEMA}.actor.profile",
         rkey="self",
-        record={
-            "$type": f"{SCHEMA}.actor.profile",
-            "displayName": display_name,
-            "description": description,
-        },
+        record=record,
     )
 
-    return redirect("/editor", 303)
+    if success:
+        kv = KV(app, app.logger, "profile_from_did")
+        kv.set(user.did, json.dumps(record))
+
+    return redirect(url_for("page_editor"), 303)
 
 
 @app.post("/editor/links")
@@ -183,19 +189,25 @@ async def post_editor_links():
             link["subtitle"] = subtitle
         links.append(link)
 
-    await put_record(
+    record = {
+        "$type": f"{SCHEMA}.actor.links",
+        "links": links,
+    }
+
+    success = await put_record(
         user=user,
         pds=user.pds_url,
         repo=user.did,
         collection=f"{SCHEMA}.actor.links",
         rkey="self",
-        record={
-            "$type": f"{SCHEMA}.actor.links",
-            "links": links,
-        },
+        record=record,
     )
 
-    return redirect("/editor", 303)
+    if success:
+        kv = KV(app, app.logger, "links_from_did")
+        kv.set(user.did, json.dumps(record))
+
+    return redirect(url_for("page_editor"), 303)
 
 
 @app.get("/terms")
@@ -210,10 +222,10 @@ async def load_links(
     reload: bool = False,
 ) -> list[dict[str, str]] | None:
     kv = KV(app, app.logger, "links_from_did")
-    recordstr = kv.get(did)
+    record_json = kv.get(did)
 
-    if recordstr is not None and not reload:
-        return json.loads(recordstr)["links"]
+    if record_json is not None and not reload:
+        return json.loads(record_json)["links"]
 
     record = await get_record(client, pds, did, f"{SCHEMA}.actor.links", "self")
     if record is None:
@@ -231,20 +243,24 @@ async def load_profile(
     reload: bool = False,
 ) -> tuple[dict[str, str] | None, bool]:
     kv = KV(app, app.logger, "profile_from_did")
-    recordstr = kv.get(did)
+    record_json = kv.get(did)
 
-    if recordstr is not None and not reload:
-        return json.loads(recordstr), False
+    if record_json is not None and not reload:
+        return json.loads(record_json), False
+
+    (record, bsky_record) = await asyncio.gather(
+        get_record(client, pds, did, f"{SCHEMA}.actor.profile", "self"),
+        get_record(client, pds, did, "app.bsky.actor.profile", "self"),
+    )
 
     from_bluesky = False
-    record = await get_record(client, pds, did, f"{SCHEMA}.actor.profile", "self")
     if record is None and fallback_with_bluesky:
-        record = await get_record(client, pds, did, "app.bsky.actor.profile", "self")
+        record = bsky_record
         from_bluesky = True
-    if record is None:
-        return None, False
 
-    kv.set(did, value=json.dumps(record))
+    if record is not None:
+        kv.set(did, value=json.dumps(record))
+
     return record, from_bluesky
 
 
@@ -256,7 +272,9 @@ async def put_record(
     collection: str,
     rkey: str,
     record: dict[str, Any],
-):
+) -> bool:
+    """Writes the record onto the users PDS. Returns bool for success."""
+
     endpoint = f"{pds}/xrpc/com.atproto.repo.putRecord"
     body = {
         "repo": repo,
@@ -276,8 +294,8 @@ async def put_record(
         user=user,
         update_dpop_pds_nonce=update_dpop_pds_nonce,
     )
-    if not response or not response.ok:
-        app.logger.warning("PDS HTTP ERROR")
+
+    return response is not None and response.ok
 
 
 def _is_did_blocked(did: str) -> bool:
