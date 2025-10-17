@@ -5,6 +5,7 @@
     <title>terms of service &mdash; ligo.at</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='profile/default.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
@@ -47,15 +48,13 @@
         Engage in spam, phishing, or other deceptive practices.
         Attempt to gain unauthorized access to the Service or other users' accounts.
         Interfere with or disrupt the Service or servers connected to the Service.
-
       </p>
 
       <footer>
         <p>
           <a href="/">home</a>
-          <span>·</span>
-          <a href="https://tangled.org/@ligo.at/core" target="_blank">source code</a>
         </p>
+        {% include "_footerlinks.html" %}
       </footer>
     </div>
   </body>

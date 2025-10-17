@@ -2,9 +2,10 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>not found &mdash; ligo.at</title>
+    <title>oops! &mdash; ligo.at</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='profile/default.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
@@ -17,9 +18,10 @@
       </header>
       <p>{{ message }}</p>
       <footer>
-        <a href="/">home</a>
-        <span>·</span>
-        Made by <a href="/@nauta.one">@nauta.one</a>
+        <p>
+          <a href="/">home</a>
+        </p>
+        {% include "_footerlinks.html" %}
       </footer>
     </div>
   </body>

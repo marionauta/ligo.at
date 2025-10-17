@@ -5,6 +5,7 @@
     <title>login &mdash; ligo.at</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='profile/default.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
@@ -28,11 +29,10 @@
         <input type="submit" value="continue" />
       </form>
       <footer>
-        <a href="/">home</a>
-        <span>·</span>
-        <a href="{{ url_for('page_terms') }}">terms of service</a>
-        <span>·</span>
-        <a href="https://tangled.org/@ligo.at/core" target="_blank">source code</a>
+        <p>
+          <a href="/">home</a>
+        </p>
+        {% include "_footerlinks.html" %}
       </footer>
     </div>
     <!-- .wrapper -->

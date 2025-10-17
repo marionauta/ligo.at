@@ -5,8 +5,8 @@
     <title>edit your profile &mdash; ligo.at</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='profile/default.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='editor.css') }}" />
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
     <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon-48.png') }}" />
@@ -122,7 +122,10 @@
       <!-- /editor/links -->
 
       <footer>
-        <a href="/">home</a>
+        <p>
+          <a href="/">home</a>
+        </p>
+        {% include "_footerlinks.html" %}
       </footer>
     </div>
     <!-- .wrapper -->

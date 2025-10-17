@@ -1,0 +1,106 @@
+:root {
+    --color-background: #fff;
+    --color-text: #333;
+    --color-text-secondary: #696969;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-background: #111;
+        --color-text: #fff;
+        --color-text-secondary: #aaa;
+    }
+}
+
+body {
+    background: var(--color-background);
+    color: var(--color-text);
+    font-size: 18px;
+    font-family: "Inter", system-ui, sans-serif, ui-sans-serif;
+    font-feature-settings:
+        "kern" 1,
+        "liga" 1,
+        "cv05" 1,
+        "tnum" 1;
+    font-optical-sizing: auto;
+    font-variation-settings: normal;
+    font-weight: 400;
+    margin: 1rem;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-font-smoothing: antialiased;
+}
+
+a {
+    color: inherit;
+}
+
+.wrapper {
+    margin: auto;
+    max-width: 25em;
+}
+
+.wrapper.profile {
+    font-size: 20px;
+}
+
+header {
+    margin: 2.5em 0;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.5em;
+    font-weight: inherit;
+}
+
+header .tagline {
+    font-style: italic;
+    display: block;
+    margin-top: 0.5em;
+}
+
+.links-container ul {
+    list-style: none;
+    padding: 0;
+}
+
+.link-item {
+    background: currentColor;
+    display: block;
+    padding: 0.5em;
+    text-align: center;
+    transition: transform 0.1s;
+    box-shadow: -3px 3px 0 rgba(from currentColor r g b / 0.6);
+}
+
+.link-item .link-item-title {
+    color: white;
+}
+
+.link-item .link-item-detail {
+    color: white;
+    display: block;
+    font-size: 0.75em;
+    opacity: 0.6;
+    transition: opacity 0.3s;
+}
+
+.link-item:hover {
+    transform: scale(1.05);
+}
+
+.link-item:hover .link-item-detail {
+    opacity: 1;
+}
+
+.links-container li + li {
+    margin-top: 0.75em;
+}
+
+footer {
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    margin: 5em 0;
+    text-align: center;
+}

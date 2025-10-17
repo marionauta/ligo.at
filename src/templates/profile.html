@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <base target="_blank" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='profile/default.css') }}" />
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
     <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon-48.png') }}" />
@@ -14,26 +14,28 @@
   </head>
   <body>
     <div class="wrapper profile">
-      <header>
+      <header class="links-header">
         <h1>{{ profile.displayName }}</h1>
         {% if profile.description %}
         <span class="tagline">{{ profile.description }}</span>
         {% endif %}
       </header>
-      <ul>
-        {% for link in links %}
-        <li style="color: {{ link.backgroundColor }}">
-          <a href="{{ link.href }}">
-            <div class="link-item">
-              <span class="link-item-title">{{ link.title }}</span>
-              {% if link.subtitle %}
-              <span class="link-item-detail">{{ link.subtitle }}</span>
-              {% endif %}
-            </div><!-- .link-item -->
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
+      <div class="links-container">
+        <ul>
+          {% for link in links %}
+          <li style="color: {{ link.backgroundColor }}">
+            <a href="{{ link.href }}">
+              <div class="link-item">
+                <span class="link-item-title">{{ link.title }}</span>
+                {% if link.subtitle %}
+                <span class="link-item-detail">{{ link.subtitle }}</span>
+                {% endif %}
+              </div><!-- .link-item -->
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
       <footer>
         made with <a href="https://ligo.at" target="_self">ligo.at</a>
       </footer>
