@@ -118,14 +118,14 @@ wheels = [
 
 [[package]]
 name = "atproto-jetstream"
-version = "0.1.1"
+version = "0.2.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/80/56/f6735dcb9a6f24677efe008597a9360f275ca1894de0a28283c94ad6a0ca/atproto_jetstream-0.1.1.tar.gz", hash = "sha256:3d37d3bda76e6eafbc5c76af3d626b2f6902cac56625d641588375bed1b6c883", size = 3455, upload-time = "2025-10-15T16:34:36.946Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/29/02/17d2d5f7004b85d1f652f4146a4e9f01b9abf410f1c075ae437783461430/atproto_jetstream-0.2.0.tar.gz", hash = "sha256:8f9f81c040f69be6977ae78386890c40d4cf7dfded288e0fc32ac2417dcd46b6", size = 3515, upload-time = "2025-10-17T20:30:23.144Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a9/8d/4f387a87bf0e4aa1883c06de9f54b0d706185d9c701740ed56924ee1f5d1/atproto_jetstream-0.1.1-py3-none-any.whl", hash = "sha256:fa34444de12075e7d02e0768c3dca4cb84338ebea97723e90a6d5a587e8791fd", size = 3993, upload-time = "2025-10-15T16:34:35.826Z" },
+    { url = "https://files.pythonhosted.org/packages/9d/ad/a5986ec84f567a3637946461da50be2093aae9cc1cd60901cfdd462b3b13/atproto_jetstream-0.2.0-py3-none-any.whl", hash = "sha256:79cae78b0d20df6d9bdf4a640d832f29af3361ce7db2f9c9daeb874030d6b495", size = 4045, upload-time = "2025-10-17T20:30:22.239Z" },
 ]
 
 [[package]]
@@ -416,7 +416,7 @@ dependencies = [
 requires-dist = [
     { name = "aiodns", specifier = ">=3.5.0" },
     { name = "aiohttp", specifier = ">=3.13.0" },
-    { name = "atproto-jetstream", specifier = ">=0.1.1" },
+    { name = "atproto-jetstream", specifier = ">=0.2.0" },
     { name = "authlib", specifier = ">=1.3" },
     { name = "flask", extras = ["async", "dotenv"], specifier = ">=3.1.2" },
     { name = "gunicorn", specifier = ">=23.0.0" },
