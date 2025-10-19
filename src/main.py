@@ -53,20 +53,20 @@ async def page_profile(atid: str):
     didkv = KV(db, app.logger, "did_from_handle")
     pdskv = KV(db, app.logger, "pds_from_did")
 
-    if atid.startswith("@"):
-        handle = atid[1:].lower()
-        did = await resolve_did_from_handle(handle, kv=didkv, reload=reload)
-        if did is None:
-            return render_template("error.html", message="did not found"), 404
-    elif is_valid_did(atid):
-        did = atid
-    else:
-        return render_template("error.html", message="invalid did or handle"), 400
-
-    if _is_did_blocked(did):
-        return render_template("error.html", message="profile not found"), 404
-
     async with ClientSession() as client:
+        if atid.startswith("@"):
+            handle = atid[1:].lower()
+            did = await resolve_did_from_handle(client, handle, kv=didkv, reload=reload)
+            if did is None:
+                return render_template("error.html", message="did not found"), 404
+        elif is_valid_did(atid):
+            did = atid
+        else:
+            return render_template("error.html", message="invalid did or handle"), 400
+
+        if _is_did_blocked(did):
+            return render_template("error.html", message="profile not found"), 404
+
         pds = await resolve_pds_from_did(client, did=did, kv=pdskv, reload=reload)
         if pds is None:
             return render_template("error.html", message="pds not found"), 404
