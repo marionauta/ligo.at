@@ -1,5 +1,6 @@
 from aiodns import DNSResolver, error as dns_error
 from aiohttp.client import ClientSession
+from asyncio import tasks
 from os import getenv
 from re import match as regex_match
 from typing import Any
@@ -35,7 +36,7 @@ async def resolve_identity(
 
     if is_valid_handle(query):
         handle = query.lower()
-        did = await resolve_did_from_handle(handle, didkv)
+        did = await resolve_did_from_handle(client, handle, didkv)
         if not did:
             return None
         doc = await resolve_doc_from_did(client, did)
@@ -54,7 +55,7 @@ async def resolve_identity(
         handle = handle_from_doc(doc)
         if not handle:
             return None
-        if await resolve_did_from_handle(handle, didkv) != did:
+        if await resolve_did_from_handle(client, handle, didkv) != did:
             return None
         return (did, handle, doc)
 
@@ -73,11 +74,12 @@ def handle_from_doc(doc: dict[str, list[str]]) -> str | None:
 
 
 async def resolve_did_from_handle(
+    client: ClientSession,
     handle: str,
     kv: KV = nokv,
     reload: bool = False,
 ) -> str | None:
-    """Returns the DID for a given handle"""
+    """Returns the DID for a given handle."""
 
     if not is_valid_handle(handle):
         return None
@@ -86,18 +88,41 @@ async def resolve_did_from_handle(
     if did is not None and not reload:
         return did
 
-    resolver = DNSResolver()
-    try:
-        result = await resolver.query(f"_atproto.{handle}", "TXT")
-    except dns_error.DNSError:
-        return None
+    did = await _resolve_did_from_handle_dns(handle)
+    if did is None:
+        did = await _resolve_did_from_handle_wk(client, handle)
+
+    if did is not None and is_valid_did(did):
+        kv.set(handle, value=did)
+        return did
+
+    return None
+
+
+async def _resolve_did_from_handle_wk(client: ClientSession, handle: str) -> str | None:
+    """Resolve the DID for a given handle via .well-known"""
+
+    url = f"https://{handle}/.well-known/atproto-did"
+    response = await client.get(url)
+    if response.ok:
+        return await response.text()
+    return None
+
+
+async def _resolve_did_from_handle_dns(handle: str) -> str | None:
+    """Resolve the DID for a given handle via DNS."""
+
+    async with DNSResolver() as resolver:
+        try:
+            result = await resolver.query(f"_atproto.{handle}", "TXT")
+        except dns_error.DNSError:
+            return None
 
     for record in result:
-        value = str(record.text).replace('"', "")
+        value = str(record.text).strip('"')
         if value.startswith("did="):
             did = value[4:]
             if is_valid_did(did):
-                kv.set(handle, value=did)
                 return did
 
     return None
