@@ -10,6 +10,7 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
     <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon-48.png') }}" />
+    <script src="{{ url_for('static', filename='htmx.2.0.7.min.js') }}"></script>
     <script defer src="{{ url_for('static', filename='alpine.sort.3.15.0.min.js') }}"></script>
     <script defer src="{{ url_for('static', filename='alpine.3.15.0.min.js') }}"></script>
   </head>
@@ -33,25 +34,7 @@
       </still-building>
 
       <h2>profile</h2>
-      <form action="/editor/profile" method="post">
-        <label>
-          <span>Display name</span>
-          <input type="text" name="displayName" value="{{ profile.displayName }}" required />
-        </label>
-        <label>
-          <span>Description</span>
-          <input type="text" name="description" value="{{ profile.description }}" />
-        </label>
-        {% if profile_from_bluesky %}
-        <p>
-          <span class="faded caption">Profile was fetched from Bluesky. On save it will use an independent, ligo.at only copy.</span>
-        </p>
-        {% endif %}
-        <label>
-          <input type="submit" value="save profile">
-        </label>
-      </form>
-      <!-- /editor/profile -->
+      {% include "_editor_profile.html" %}
 
       <div>
         <h2 style="display: inline-block;">links</h2>

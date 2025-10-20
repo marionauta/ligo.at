@@ -164,3 +164,20 @@ still-building p {
         padding-top: 0;
     }
 }
+
+.htmx-indicator {
+    background: yellowgreen;
+    height: 2px;
+}
+
+.htmx-request .htmx-indicator {
+    display: block;
+}
+
+form[hx-post] {
+    transition: opacity 0.2s;
+}
+
+form[hx-post].htmx-request {
+    opacity: 0.6;
+}

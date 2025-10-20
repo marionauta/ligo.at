@@ -3,6 +3,7 @@ import json
 
 from aiohttp.client import ClientSession
 from flask import Flask, g, session, redirect, render_template, request, url_for
+from flask_htmx import HTMX
 from typing import Any
 
 from .atproto import (
@@ -21,6 +22,8 @@ from .oauth import oauth
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
 app.register_blueprint(oauth)
+htmx = HTMX()
+htmx.init_app(app)
 init_db(app)
 
 SCHEMA = "at.ligo"
@@ -162,6 +165,9 @@ async def post_editor_profile():
     if success:
         kv = KV(app, app.logger, "profile_from_did")
         kv.set(user.did, json.dumps(record))
+
+    if htmx:
+        return render_template("_editor_profile.html", profile=record)
 
     return redirect(url_for("page_editor"), 303)
 
