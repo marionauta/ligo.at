@@ -3,7 +3,7 @@ import json
 
 from aiohttp.client import ClientSession
 from flask import Flask, g, session, redirect, render_template, request, url_for
-from flask_htmx import HTMX
+from flask_htmx import HTMX, make_response as htmx_reponse
 from typing import Any
 
 from .atproto import (
@@ -167,7 +167,10 @@ async def post_editor_profile():
         kv.set(user.did, json.dumps(record))
 
     if htmx:
-        return render_template("_editor_profile.html", profile=record)
+        return htmx_reponse(
+            render_template("_editor_profile.html", profile=record),
+            reswap="outerHTML",
+        )
 
     return redirect(url_for("page_editor"), 303)
 
@@ -212,6 +215,12 @@ async def post_editor_links():
     if success:
         kv = KV(app, app.logger, "links_from_did")
         kv.set(user.did, json.dumps(record))
+
+    if htmx:
+        return htmx_reponse(
+            render_template("_editor_links.html", links=record["links"]),
+            reswap="outerHTML",
+        )
 
     return redirect(url_for("page_editor"), 303)
 

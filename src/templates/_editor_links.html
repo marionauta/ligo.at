@@ -1,0 +1,81 @@
+<div id="editor-links-container" x-data="{ links: {{ links }}, linksChanged: false }">
+  <div>
+    <h2 style="display: inline-block;">links</h2>
+    <template x-if="linksChanged">
+      <span class="alert">You have unsaved changes!</span>
+    </template>
+  </div>
+
+  <form
+    method="post"
+    action="/editor/links"
+    hx-post="/editor/links"
+    hx-target="#editor-links-container"
+    @change="linksChanged = true"
+  >
+    <input type="submit" value="save links" />
+    {% include "_htmx_indicator.html" %}
+
+    <div x-sort x-sort:config="{ handle: '[x-sort\\:handle]' }">
+      <template x-for="(link, index) in links">
+        <link-editor-item x-data="{ editing: !link.href }" x-sort:item="link.href">
+          <link-editor-header>
+            <div class="static link-item" :style="'color: ' + link.backgroundColor">
+              <span class="link-item-title" x-text="link.title"></span>
+              <span class="link-item-detail" x-show="link.subtitle" x-text="link.subtitle"></span>
+            </div>
+            <link-editor-drag-handle x-sort:handle>⠿</link-editor-drag-handle>
+          </link-editor-header>
+          <div x-show="!editing">
+            <link-editor-buttons>
+              <button type="button" @click="editing = true">edit</button>
+              <button type="button" @click="if (confirm('delete ' + link.title + '?')) links.splice(index, 1)">delete</button>
+            </link-editor-buttons>
+          </div>
+          <div x-show="editing">
+            <editor-label>
+              <label>
+                <span class="label">URL</span>
+                <input type="text" name="link-href" x-model="link.href" required />
+              </label>
+            </editor-label>
+            <editor-label>
+              <label>
+                <span class="label">Title</span>
+                <input type="text" name="link-title" x-model="link.title" required />
+              </label>
+            </editor-label>
+            <editor-label>
+              <label>
+                <span class="label">Subtitle</span>
+                <input type="text" name="link-subtitle" x-model="link.subtitle" />
+              </label>
+            </editor-label>
+            <editor-label>
+              <label>
+                <span class="label">Background color</span>
+                <input type="color" name="link-background-color" x-model="link.backgroundColor" required />
+              </label>
+            </editor-label>
+            <button type="button" class="submit" @click="editing = false">close</button>
+          </div>
+        </link-editor-item>
+      </template>
+    </div>
+
+    <template x-if="links.length === 0">
+      <p>
+        Nothing here! Add your first link, then the second, then...
+        You can always delete and sort them.
+      </p>
+    </template>
+
+    <button type="button" @click="links.push({ backgroundColor: '#A1D87E' })" style="display: block; margin-top: 1em;">
+      add link
+    </button>
+
+    <input type="submit" value="save links" />
+    {% include "_htmx_indicator.html" %}
+  </form>
+  <!-- #editor-links-container -->
+</div>

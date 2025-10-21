@@ -5,6 +5,7 @@
     --color-background-secondary: #eee;
     --color-border: #bbb;
     --color-border-secondary: #ddd;
+    --color-success: #080;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -12,6 +13,7 @@
         --color-background-secondary: #333;
         --color-border: #555;
         --color-border-secondary: #333;
+        --color-success: #af2;
     }
 }
 
@@ -69,20 +71,20 @@ input[type="submit"] {
     padding: 0.25em;
 }
 
-input[type="submit"]:last-child {
+button.submit:last-of-type,
+input[type="submit"]:last-of-type {
     margin-top: 1em;
 }
 
-label:has(input) {
+editor-label {
     display: block;
+}
+
+editor-label + editor-label {
     margin-top: 0.25em;
 }
 
-label:has(input):has(span) input {
-    display: block;
-}
-
-label:has(input):has(span) span {
+editor-label .label {
     font-size: 14px;
     font-weight: 700;
     text-transform: uppercase;
@@ -166,12 +168,29 @@ still-building p {
 }
 
 .htmx-indicator {
-    background: yellowgreen;
-    height: 2px;
+    --height: 2px;
+    height: var(--height);
+    margin: 2px 0;
+    opacity: 0;
+    visibility: none;
 }
 
-.htmx-request .htmx-indicator {
+.htmx-request .progress {
+    animation: progress-bar 0.5s linear;
+    animation-fill-mode: both;
+    background: var(--color-success);
+    border-radius: calc(var(--height) / 2);
     display: block;
+    height: var(--height);
+}
+
+@keyframes progress-bar {
+    0% {
+        width: 25%;
+    }
+    100% {
+        width: 100%;
+    }
 }
 
 form[hx-post] {

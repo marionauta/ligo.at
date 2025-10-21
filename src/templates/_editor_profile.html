@@ -1,20 +1,22 @@
-<form action="/editor/profile" method="post" hx-post="/editor/profile" hx-swap="outerHTML">
-  <label>
-    <span>Display name</span>
-    <input type="text" name="displayName" value="{{ profile.displayName }}" required />
-  </label>
-  <label>
-    <span>Description</span>
-    <input type="text" name="description" value="{{ profile.description }}" />
-  </label>
+<form method="post" action="/editor/profile" hx-post="/editor/profile">
+  <editor-label>
+    <label>
+      <span class="label">Display name</span>
+      <input type="text" name="displayName" value="{{ profile.displayName }}" required />
+    </label>
+  </editor-label>
+  <editor-label>
+    <label>
+      <span class="label">Description</span>
+      <input type="text" name="description" value="{{ profile.description }}" />
+    </label>
+  </editor-label>
   {% if profile_from_bluesky %}
   <p>
     <span class="faded caption">Profile was fetched from Bluesky. On save it will use an independent, ligo.at only copy.</span>
   </p>
   {% endif %}
-  <label>
-    <input type="submit" value="save profile">
-  </label>
-  <div class="htmx-indicator"></div>
+  <input type="submit" value="save profile">
+  {% include "_htmx_indicator.html" %}
+  <!-- /editor/profile -->
 </form>
-<!-- /editor/profile -->
