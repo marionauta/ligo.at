@@ -1,7 +1,7 @@
 import asyncio
 import json
 
-from aiohttp.client import ClientSession
+from aiohttp.client import ClientResponse, ClientSession
 from flask import Flask, g, session, redirect, render_template, request, url_for
 from flask_htmx import HTMX, make_response as htmx_reponse
 from typing import Any
@@ -310,7 +310,11 @@ async def put_record(
         update_dpop_pds_nonce=update_dpop_pds_nonce,
     )
 
-    return response is not None and response.ok
+    if not response.ok:
+        app.logger.warning(f"put_record failed with status {response.status}")
+        app.logger.warning(await response.text())
+
+    return response.ok
 
 
 def _is_did_blocked(did: str) -> bool:

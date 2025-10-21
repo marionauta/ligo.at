@@ -236,15 +236,14 @@ async def pds_authed_req(
     user: OAuthSession,
     update_dpop_pds_nonce: Callable[[str], None],
     body: dict[str, Any] | None = None,
-) -> ClientResponse | None:
+) -> ClientResponse:
     dpop_private_jwk = JsonWebKey.import_key(json.loads(user.dpop_private_jwk))
     dpop_pds_nonce = user.dpop_pds_nonce
     access_token = user.access_token
-
-    response: ClientResponse | None = None
+    response: ClientResponse
 
     # Might need to retry request with a new nonce.
-    for i in range(2):
+    for _ in range(2):
         dpop_jwt = _pds_dpop_jwt(
             "POST",
             url,
@@ -272,7 +271,7 @@ async def pds_authed_req(
             continue
         break
 
-    return response
+    return response  # pyright: ignore[reportPossiblyUnboundVariable] response is assigned inside the loop
 
 
 def _client_assertion_jwt(
