@@ -2,7 +2,22 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <!-- metadata and open graph -->
+    <meta property="og:type" content="profile" />
     <title>Links for {{ profile.displayName }}</title>
+    <meta property="og:title" content="{{ profile.displayName }}" />
+    {% if profile.description %}
+    <meta name="description" content="{{ profile.description }}" />
+    <meta property="og:description" content="{{ profile.description }}" />
+    {% endif %}
+    <meta property="og:image" content="https://{{ request.host }}{{ url_for('static', filename='favicon-48.png') }}" />
+    {% if profile.handle %}
+    <link rel="canonical" href="https://{{ request.url }}/@{{ profile.handle }}" />
+    <meta property="og:url" content="https://{{ request.url }}/@{{ profile.handle }}" />
+    <meta property="profile:username" content="{{ profile.handle }}" />
+    {% endif %}
+    {% if athref %}<link rel="alternate" href="{{ athref }}" />{% endif %}
+    <!-- styles and favicons -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <base target="_blank" />
     <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
@@ -10,8 +25,6 @@
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
     <link rel="icon" type="image/png" sizes="48x48" href="{{ url_for('static', filename='favicon-48.png') }}" />
-    {% if canonical %}<link rel="canonical" href="{{ canonical }}" />{% endif %}
-    {% if athref %}<link rel="alternate" href="{{ athref }}" />{% endif %}
   </head>
   <body>
     <div class="wrapper profile">

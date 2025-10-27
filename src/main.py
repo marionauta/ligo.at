@@ -85,13 +85,12 @@ async def page_profile(atid: str):
         # remove the ?reload parameter
         return redirect(request.path)
 
+    profile["handle"] = handle
     athref = f"at://{did}/at.ligo.actor.links/self"
-    canonical = f"https://ligo.at/{f'@{handle}' if handle else did}"
     return render_template(
         "profile.html",
         profile=profile,
         links=links,
-        canonical=canonical,
         athref=athref,
     )
 
