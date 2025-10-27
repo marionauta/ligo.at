@@ -63,6 +63,7 @@ async def page_profile(atid: str):
             if did is None:
                 return render_template("error.html", message="did not found"), 404
         elif is_valid_did(atid):
+            handle = None
             did = atid
         else:
             return render_template("error.html", message="invalid did or handle"), 400
@@ -85,7 +86,14 @@ async def page_profile(atid: str):
         return redirect(request.path)
 
     athref = f"at://{did}/at.ligo.actor.links/self"
-    return render_template("profile.html", profile=profile, links=links, athref=athref)
+    canonical = f"https://ligo.at/{f'@{handle}' if handle else did}"
+    return render_template(
+        "profile.html",
+        profile=profile,
+        links=links,
+        canonical=canonical,
+        athref=athref,
+    )
 
 
 @app.get("/login")
