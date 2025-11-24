@@ -24,13 +24,20 @@
         </label>
         <span class="faded caption">
           Use your AT Protocol handle to log in.
-          If you're unsure you can
-          <a href="{{ url_for('oauth.oauth_start', authserver='https://bsky.social') }}" rel="nofollow">
-            log in with Bluesky
-          </a>.
         </span>
         <input type="submit" value="continue" />
       </form>
+
+      <div class="authservers">
+        <span class="faded caption">If you're unsure you can log in with...</span>
+        <form action="{{ url_for('auth_login') }}" method="post">
+          <button type="submit" name="authserver" value="https://bsky.social">Bluesky</button>
+          <button type="submit" name="authserver" value="https://blacksky.app">Blacksky</button>
+          <button type="submit" name="authserver" value="https://tngl.sh">tangled</button>
+          <button type="submit" name="authserver" value="https://pds.witchcraft.systems">Witchraft Systems</button>
+        </form>
+      </div>
+
       <footer>
         <p>
           <a href="/">home</a>

@@ -105,12 +105,12 @@ def page_login():
 
 @app.post("/login")
 def auth_login():
-    username = request.form.get("username", "")
-    if username[0] == "@":
-        username = username[1:]
-    if not username:
+    value = request.form.get("username") or request.form.get("authserver")
+    if value and value[0] == "@":
+        value = value[1:]
+    if not value:
         return redirect(url_for("page_login"), 303)
-    return redirect(url_for("oauth.oauth_start", username=username), 303)
+    return redirect(url_for("oauth.oauth_start", username_or_authserver=value), 303)
 
 
 @app.route("/auth/logout")

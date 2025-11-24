@@ -30,7 +30,7 @@ oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 @oauth.get("/start")
 async def oauth_start():
     # Identity
-    username = request.args.get("username") or request.args.get("authserver")
+    username = request.args.get("username_or_authserver")
     if not username:
         return redirect(url_for("page_login"), 303)
 

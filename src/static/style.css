@@ -80,6 +80,26 @@ input[type="submit"]:last-of-type {
     margin-top: 1em;
 }
 
+.login .authservers {
+    margin-top: 2em;
+}
+
+.login .authservers .caption {
+    display: block;
+    text-align: center;
+}
+
+.login .authservers form {
+    display: grid;
+    gap: 0.25em;
+    grid-template-columns: 1fr 1fr;
+    margin-top: 0.75em;
+}
+
+.login .authservers button {
+    font-weight: unset;
+}
+
 editor-label {
     display: block;
 }
