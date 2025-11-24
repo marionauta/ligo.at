@@ -116,14 +116,14 @@ def auth_login():
 @app.route("/auth/logout")
 def auth_logout():
     session.clear()
-    return redirect("/", 303)
+    return redirect(url_for("page_login"), 303)
 
 
 @app.get("/editor")
 async def page_editor():
     user = get_user()
     if user is None:
-        return redirect("/login")
+        return redirect("/login", 302)
 
     did: str = user.did
     pds: str = user.pds_url
@@ -152,7 +152,8 @@ async def page_editor():
 async def post_editor_profile():
     user = get_user()
     if user is None:
-        return redirect("/login", 303)
+        url = url_for("auth_logout")
+        return htmx_response(redirect=url) if htmx else redirect(url, 303)
 
     display_name = request.form.get("displayName")
     description = request.form.get("description", "")
@@ -177,6 +178,10 @@ async def post_editor_profile():
     if success:
         kv = KV(app, app.logger, "profile_from_did")
         kv.set(user.did, json.dumps(record))
+    else:
+        app.logger.warning("log out user for now")
+        url = url_for("auth_logout")
+        return htmx_response(redirect=url) if htmx else redirect(url, 303)
 
     if htmx:
         return htmx_response(
@@ -191,7 +196,8 @@ async def post_editor_profile():
 async def post_editor_links():
     user = get_user()
     if user is None:
-        return redirect("/login", 303)
+        url = url_for("auth_logout")
+        return htmx_response(redirect=url) if htmx else redirect(url, 303)
 
     links: list[dict[str, str]] = []
     hrefs = request.form.getlist("link-href")
@@ -232,6 +238,10 @@ async def post_editor_links():
     if success:
         kv = KV(app, app.logger, "links_from_did")
         kv.set(user.did, json.dumps(record))
+    else:
+        app.logger.warning("log out user for now")
+        url = url_for("auth_logout")
+        return htmx_response(redirect=url) if htmx else redirect(url, 303)
 
     if htmx:
         return htmx_response(

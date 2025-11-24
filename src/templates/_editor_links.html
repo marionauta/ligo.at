@@ -6,6 +6,10 @@
     </template>
   </div>
 
+  <noscript>
+    JavaScript is needed for a better experience configuring the links.
+  </noscript>
+
   <form
     method="post"
     action="/editor/links"
@@ -29,7 +33,7 @@
           <div x-show="!editing">
             <link-editor-buttons>
               <button type="button" @click="editing = true">edit</button>
-              <button type="button" @click="if (confirm('delete ' + link.title + '?')) links.splice(index, 1)">delete</button>
+              <button type="button" @click="if (confirm('delete ' + link.title + '?')) { linksChanged = true; links.splice(index, 1); }">delete</button>
             </link-editor-buttons>
           </div>
           <div x-show="editing">
