@@ -1,10 +1,11 @@
 import asyncio
 import json
+from typing import Any, NamedTuple
 
-from aiohttp.client import ClientResponse, ClientSession
-from flask import Flask, g, session, redirect, render_template, request, url_for
-from flask_htmx import HTMX, make_response as htmx_reponse
-from typing import Any
+from aiohttp.client import ClientSession
+from flask import Flask, g, redirect, render_template, request, session, url_for
+from flask_htmx import HTMX
+from flask_htmx import make_response as htmx_response
 
 from .atproto import (
     PdsUrl,
@@ -25,8 +26,6 @@ app.register_blueprint(oauth)
 htmx = HTMX()
 htmx.init_app(app)
 init_db(app)
-
-SCHEMA = "at.ligo"
 
 
 @app.before_request
@@ -74,23 +73,25 @@ async def page_profile(atid: str):
         pds = await resolve_pds_from_did(client, did=did, kv=pdskv, reload=reload)
         if pds is None:
             return render_template("error.html", message="pds not found"), 404
-        (profile, _), links = await asyncio.gather(
+        (profile, _), link_sections = await asyncio.gather(
             load_profile(client, pds, did, reload=reload),
             load_links(client, pds, did, reload=reload),
         )
-    if links is None:
+    if profile is None or link_sections is None:
         return render_template("error.html", message="profile not found"), 404
 
     if reload:
         # remove the ?reload parameter
         return redirect(request.path)
 
-    profile["handle"] = handle
+    if handle:
+        profile["handle"] = handle
     athref = f"at://{did}/at.ligo.actor.links/self"
     return render_template(
         "profile.html",
         profile=profile,
-        links=links,
+        links=link_sections[0].links,
+        sections=link_sections,
         athref=athref,
     )
 
@@ -129,17 +130,21 @@ async def page_editor():
     handle: str | None = user.handle
 
     async with ClientSession() as client:
-        (profile, from_bluesky), links = await asyncio.gather(
+        (profile, from_bluesky), link_sections = await asyncio.gather(
             load_profile(client, pds, did),
             load_links(client, pds, did),
         )
+
+    links = []
+    if link_sections:
+        links = link_sections[0].links
 
     return render_template(
         "editor.html",
         handle=handle,
         profile=profile,
         profile_from_bluesky=from_bluesky,
-        links=json.dumps(links or []),
+        links=json.dumps(links),
     )
 
 
@@ -155,7 +160,7 @@ async def post_editor_profile():
         return redirect("/editor", 303)
 
     record = {
-        "$type": f"{SCHEMA}.actor.profile",
+        "$type": "at.ligo.actor.profile",
         "displayName": display_name,
         "description": description,
     }
@@ -164,7 +169,7 @@ async def post_editor_profile():
         user=user,
         pds=user.pds_url,
         repo=user.did,
-        collection=f"{SCHEMA}.actor.profile",
+        collection="at.ligo.actor.profile",
         rkey="self",
         record=record,
     )
@@ -174,7 +179,7 @@ async def post_editor_profile():
         kv.set(user.did, json.dumps(record))
 
     if htmx:
-        return htmx_reponse(
+        return htmx_response(
             render_template("_editor_profile.html", profile=record),
             reswap="outerHTML",
         )
@@ -206,15 +211,20 @@ async def post_editor_links():
         links.append(link)
 
     record = {
-        "$type": f"{SCHEMA}.actor.links",
-        "links": links,
+        "$type": "at.ligo.actor.links",
+        "sections": [
+            {
+                "title": "",
+                "links": links,
+            }
+        ],
     }
 
     success = await put_record(
         user=user,
         pds=user.pds_url,
         repo=user.did,
-        collection=f"{SCHEMA}.actor.links",
+        collection="at.ligo.actor.links",
         rkey="self",
         record=record,
     )
@@ -224,8 +234,8 @@ async def post_editor_links():
         kv.set(user.did, json.dumps(record))
 
     if htmx:
-        return htmx_reponse(
-            render_template("_editor_links.html", links=record["links"]),
+        return htmx_response(
+            render_template("_editor_links.html", links=record["sections"][0]["links"]),
             reswap="outerHTML",
         )
 
@@ -237,24 +247,39 @@ def page_terms():
     return render_template("terms.html")
 
 
+class LinkSection(NamedTuple):
+    title: str
+    links: list[dict[str, str]]
+
+
 async def load_links(
     client: ClientSession,
     pds: str,
     did: str,
     reload: bool = False,
-) -> list[dict[str, str]] | None:
+) -> list[LinkSection] | None:
     kv = KV(app, app.logger, "links_from_did")
     record_json = kv.get(did)
 
     if record_json is not None and not reload:
-        return json.loads(record_json)["links"]
+        parsed = json.loads(record_json)
+        return _links_or_sections(parsed)
 
-    record = await get_record(client, pds, did, f"{SCHEMA}.actor.links", "self")
+    record = await get_record(client, pds, did, "at.ligo.actor.links", "self")
     if record is None:
         return None
 
     kv.set(did, value=json.dumps(record))
-    return record["links"]
+    return _links_or_sections(record)
+
+
+def _links_or_sections(raw: dict[str, Any]) -> list[LinkSection] | None:
+    if "sections" in raw:
+        return list(map(lambda s: LinkSection(**s), raw["sections"]))
+    elif "links" in raw:
+        return [LinkSection("", raw["links"])]
+    else:
+        return None
 
 
 async def load_profile(
@@ -271,7 +296,7 @@ async def load_profile(
         return json.loads(record_json), False
 
     (record, bsky_record) = await asyncio.gather(
-        get_record(client, pds, did, f"{SCHEMA}.actor.profile", "self"),
+        get_record(client, pds, did, "at.ligo.actor.profile", "self"),
         get_record(client, pds, did, "app.bsky.actor.profile", "self"),
     )
 

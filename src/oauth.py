@@ -1,10 +1,20 @@
+import json
+from urllib.parse import urlencode
+
 from aiohttp.client import ClientSession
 from authlib.jose import JsonWebKey, Key
 from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
-from urllib.parse import urlencode
 
-import json
-
+from .atproto import (
+    fetch_authserver_meta,
+    is_valid_did,
+    is_valid_handle,
+    pds_endpoint_from_doc,
+    resolve_authserver_from_pds,
+    resolve_identity,
+)
+from .atproto.oauth import initial_token_request, send_par_auth_request
+from .atproto.types import OAuthAuthRequest, OAuthSession
 from .auth import (
     delete_auth_request,
     get_auth_request,
@@ -12,16 +22,6 @@ from .auth import (
     save_auth_session,
 )
 from .db import KV, get_db
-from .atproto import (
-    is_valid_did,
-    is_valid_handle,
-    pds_endpoint_from_doc,
-    resolve_authserver_from_pds,
-    fetch_authserver_meta,
-    resolve_identity,
-)
-from .atproto.oauth import initial_token_request, send_par_auth_request
-from .atproto.types import OAuthAuthRequest, OAuthSession
 from .security import is_safe_url
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")

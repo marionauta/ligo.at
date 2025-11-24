@@ -21,6 +21,10 @@ p {
     text-wrap: pretty;
 }
 
+.wrapper {
+    max-width: 25em;
+}
+
 .wrapper.error p {
     text-align: center;
 }

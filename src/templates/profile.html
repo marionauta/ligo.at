@@ -35,8 +35,9 @@
         {% endif %}
       </header>
       <div class="links-container">
-        <ul>
-          {% for link in links %}
+        {% for section in sections %}
+        <ul class="link-section">
+          {% for link in section.links %}
           <li style="color: {{ link.backgroundColor }}">
             <a href="{{ link.href }}">
               <div class="link-item">
@@ -49,6 +50,7 @@
           </li>
           {% endfor %}
         </ul>
+        {% endfor %}
       </div>
       <footer>
         made with <a href="https://ligo.at" target="_self">ligo.at</a>
