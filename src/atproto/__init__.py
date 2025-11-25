@@ -1,13 +1,14 @@
-from aiodns import DNSResolver, error as dns_error
-from aiohttp.client import ClientSession
-from asyncio import tasks
 from os import getenv
 from re import match as regex_match
 from typing import Any
 
+from aiodns import DNSResolver
+from aiodns import error as dns_error
+from aiohttp.client import ClientResponse, ClientSession
+
+from ..security import is_safe_url
 from .kv import KV, nokv
 from .validator import is_valid_authserver_meta
-from ..security import is_safe_url
 
 PLC_DIRECTORY = getenv("PLC_DIRECTORY_URL") or "https://plc.directory"
 HANDLE_REGEX = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
@@ -163,16 +164,17 @@ async def resolve_doc_from_did(
 ) -> dict[str, Any] | None:
     """Returns the DID document"""
 
+    response: ClientResponse | None = None
+
     if did.startswith("did:plc:"):
         response = await client.get(f"{PLC_DIRECTORY}/{did}")
-        if response.ok:
-            return await response.json()
-        return None
+    elif did.startswith("did:web:"):
+        domain = did.split(":")[-1]
+        assert is_valid_handle(domain)
+        response = await client.get(f"https://{domain}/.well-known/did.json")
 
-    if did.startswith("did:web:"):
-        # TODO: resolve did:web
-        raise Exception("resolve did:web")
-
+    if response and response.ok:
+        return await response.json()
     return None
 
 
