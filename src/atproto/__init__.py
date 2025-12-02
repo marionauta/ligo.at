@@ -6,7 +6,8 @@ from aiodns import DNSResolver
 from aiodns import error as dns_error
 from aiohttp.client import ClientResponse, ClientSession
 
-from ..security import is_safe_url
+from src.security import is_safe_url
+
 from .kv import KV, nokv
 from .validator import is_valid_authserver_meta
 

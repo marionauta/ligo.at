@@ -5,7 +5,7 @@ from aiohttp.client import ClientSession
 from authlib.jose import JsonWebKey, Key
 from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
 
-from .atproto import (
+from src.atproto import (
     fetch_authserver_meta,
     is_valid_did,
     is_valid_handle,
@@ -13,16 +13,16 @@ from .atproto import (
     resolve_authserver_from_pds,
     resolve_identity,
 )
-from .atproto.oauth import initial_token_request, send_par_auth_request
-from .atproto.types import OAuthAuthRequest, OAuthSession
-from .auth import (
+from src.atproto.oauth import initial_token_request, send_par_auth_request
+from src.atproto.types import OAuthAuthRequest, OAuthSession
+from src.auth import (
     delete_auth_request,
     get_auth_request,
     save_auth_request,
     save_auth_session,
 )
-from .db import KV, get_db
-from .security import is_safe_url
+from src.db import KV, get_db
+from src.security import is_safe_url
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 

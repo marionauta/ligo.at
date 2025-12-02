@@ -1,8 +1,9 @@
-from flask import current_app
-from flask.sessions import SessionMixin
 from typing import NamedTuple, TypeVar
 
-from .atproto.types import OAuthAuthRequest, OAuthSession
+from flask import current_app
+from flask.sessions import SessionMixin
+
+from src.atproto.types import OAuthAuthRequest, OAuthSession
 
 
 def save_auth_request(session: SessionMixin, request: OAuthAuthRequest):

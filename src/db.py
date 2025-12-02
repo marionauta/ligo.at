@@ -1,11 +1,11 @@
-from flask import Flask, g
+import sqlite3
 from logging import Logger
+from sqlite3 import Connection
 from typing import override
 
-import sqlite3
-from sqlite3 import Connection
+from flask import Flask, g
 
-from .atproto.kv import KV as BaseKV
+from src.atproto.kv import KV as BaseKV
 
 
 class KV(BaseKV):

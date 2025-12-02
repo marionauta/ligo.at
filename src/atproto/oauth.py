@@ -1,14 +1,16 @@
-from typing import Any, Callable, NamedTuple
-import time
 import json
-from aiohttp.client import ClientSession, ClientResponse
-from authlib.jose import JsonWebKey, Key, jwt
+import time
+from typing import Any, Callable, NamedTuple
+
+from aiohttp.client import ClientResponse, ClientSession
 from authlib.common.security import generate_token
+from authlib.jose import JsonWebKey, Key, jwt
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
+
+from src.security import hardened_http, is_safe_url
 
 from . import fetch_authserver_meta
 from .types import OAuthAuthRequest, OAuthSession
-from ..security import is_safe_url, hardened_http
 
 
 class OAuthTokens(NamedTuple):

@@ -7,18 +7,18 @@ from flask import Flask, g, redirect, render_template, request, session, url_for
 from flask_htmx import HTMX
 from flask_htmx import make_response as htmx_response
 
-from .atproto import (
+from src.atproto import (
     PdsUrl,
     get_record,
     is_valid_did,
     resolve_did_from_handle,
     resolve_pds_from_did,
 )
-from .atproto.oauth import pds_authed_req
-from .atproto.types import OAuthSession
-from .auth import get_auth_session, save_auth_session
-from .db import KV, close_db_connection, get_db, init_db
-from .oauth import oauth
+from src.atproto.oauth import pds_authed_req
+from src.atproto.types import OAuthSession
+from src.auth import get_auth_session, save_auth_session
+from src.db import KV, close_db_connection, get_db, init_db
+from src.oauth import oauth
 
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
