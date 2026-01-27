@@ -245,7 +245,7 @@ async def post_editor_links():
 
     if htmx:
         return htmx_response(
-            render_template("_editor_links.html", links=record["sections"][0]["links"]),
+            render_template("_editor_links.html", links=links),
             reswap="outerHTML",
         )
 

@@ -1,8 +1,9 @@
-import sqlite3
 import asyncio
-import dotenv
 import json
 import logging
+import sqlite3
+
+import dotenv
 from atproto_jetstream import Jetstream, JetstreamCommitEvent, JetstreamOptions
 
 logger = logging.getLogger(__name__)
@@ -22,8 +23,6 @@ def handle_commit(
     commit: JetstreamCommitEvent.Commit,
     config: dict[str, str | None],
 ):
-    is_delete: bool = commit.operation == "delete"
-
     if commit.rkey != "self":
         return
 
@@ -46,7 +45,7 @@ def handle_commit(
     if prefix is None:
         return
 
-    if is_delete:
+    if isinstance(commit, JetstreamCommitEvent.DeleteCommit):
         logger.debug(f"deleting {prefix} for {did}")
         _ = cursor.execute(
             "delete from keyval where prefix = ? and key = ?",
