@@ -131,6 +131,10 @@ async def oauth_start():
 async def oauth_callback():
     state = request.args["state"]
     authserver_iss = request.args["iss"]
+    if "code" not in request.args:
+        message = f"{request.args['error']}: {request.args['error_description']}"
+        current_app.logger.debug(message)
+        return redirect(url_for("page_login"))
     authorization_code = request.args["code"]
 
     auth_request = get_auth_request(session)
