@@ -2,6 +2,8 @@
 
 Decentralized and customizable links page on top of [AT Protocol][atproto].
 
+Try it out at [ligo.at](https://ligo.at)!
+
 ## dependencies
 
 Install [uv][uv] and run `uv sync`.
