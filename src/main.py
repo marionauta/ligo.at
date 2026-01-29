@@ -96,11 +96,29 @@ async def page_profile(atid: str):
     )
 
 
+class AuthServer(NamedTuple):
+    name: str
+    url: str
+
+
+auth_servers: list[AuthServer] = [
+    AuthServer("Bluesky", "https://bsky.social"),
+    AuthServer("Blacksky", "https://blacksky.app"),
+    AuthServer("Northsky", "https://northsky.social"),
+    AuthServer("tangled.org", "https://tngl.sh"),
+    AuthServer("Witchraft Systems", "https://pds.witchcraft.systems"),
+    AuthServer("selfhosted.social", "https://selfhosted.social"),
+]
+
+if app.debug:
+    auth_servers.append(AuthServer("pds.rip", "https://pds.rip"))
+
+
 @app.get("/login")
 def page_login():
     if get_user() is not None:
         return redirect("/editor")
-    return render_template("login.html")
+    return render_template("login.html", auth_servers=auth_servers)
 
 
 @app.post("/login")
