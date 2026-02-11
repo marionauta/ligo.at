@@ -1,0 +1,14 @@
+[project]
+name = "ingestor"
+version = "0.0.0"
+dependencies = [
+    "atproto_jetstream>=0.3.0",
+    "python-dotenv>=1.2.1",
+]
+
+[project.scripts]
+ingestor = "ingestor:main"
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"

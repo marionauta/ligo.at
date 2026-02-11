@@ -10,9 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 async def ingest_jetstream(config: dict[str, str | None]):
-    url = config.get("JETSTREAM_URL") or "jetstream1.us-east.bsky.network"
-    options = JetstreamOptions(wanted_collections=["at.ligo.*"])
-    async with Jetstream(url, options) as stream:
+    endpoint = "wss://jetstream1.us-east.bsky.network/subscribe"
+    options = JetstreamOptions(
+        endpoint=config.get("JETSTREAM_URL") or endpoint,
+        wanted_collections=["at.ligo.*"],
+        compress=True,
+    )
+    async with Jetstream(options) as stream:
         async for event in stream:
             if event.kind == "commit":
                 handle_commit(event.did, event.commit, config)
@@ -71,14 +75,14 @@ def get_database(config: dict[str, str | None]) -> sqlite3.Connection | None:
     return sqlite3.connect(database_name)
 
 
-async def main(config: dict[str, str | None]):
+async def async_main(config: dict[str, str | None]):
     try:
         await ingest_jetstream(config)
     except asyncio.CancelledError:
         pass
 
 
-if __name__ == "__main__":
+def main():
     config = dotenv.dotenv_values()
-    asyncio.run(main(config))
+    asyncio.run(async_main(config))
     print("see you next time!")

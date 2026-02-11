@@ -1,4 +1,5 @@
 .env
 .venv
+*.egg-info
 *.db
 *.pyc
