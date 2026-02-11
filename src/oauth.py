@@ -9,12 +9,18 @@ from src.atproto import (
     fetch_authserver_meta,
     is_valid_did,
     is_valid_handle,
-    pds_endpoint_from_doc,
     resolve_authserver_from_pds,
     resolve_identity,
 )
 from src.atproto.oauth import initial_token_request, send_par_auth_request
-from src.atproto.types import OAuthAuthRequest, OAuthSession
+from src.atproto.types import (
+    DID,
+    AuthserverUrl,
+    Handle,
+    OAuthAuthRequest,
+    OAuthSession,
+    PdsUrl,
+)
 from src.auth import (
     delete_auth_request,
     get_auth_request,
@@ -35,22 +41,26 @@ async def oauth_start():
         return redirect(url_for("page_login"), 303)
 
     db = get_db(current_app)
-    pdskv = KV(db, current_app.logger, "authserver_from_pds")
+    didkv = KV[Handle, DID](db, current_app.logger, "did_from_handle")
+    pdskv = KV[DID, PdsUrl](db, current_app.logger, "pds_from_did")
+    authserverkv = KV[PdsUrl, AuthserverUrl](
+        db,
+        current_app.logger,
+        "authserver_from_pds",
+    )
 
     client = ClientSession()
 
     if is_valid_handle(username) or is_valid_did(username):
         login_hint = username
-        kv = KV(db, current_app.logger, "did_from_handle")
-        identity = await resolve_identity(client, username, didkv=kv)
+        identity = await resolve_identity(client, username, didkv=didkv, pdskv=pdskv)
         if identity is None:
             return "couldnt resolve identity", 500
-        did, handle, doc = identity
-        pds_url = pds_endpoint_from_doc(doc)
-        if not pds_url:
-            return "pds not found", 404
+        did, handle, pds_url = identity
         current_app.logger.debug(f"account PDS: {pds_url}")
-        authserver_url = await resolve_authserver_from_pds(client, pds_url, pdskv)
+        authserver_url = await resolve_authserver_from_pds(
+            client, pds_url, authserverkv
+        )
         if not authserver_url:
             return "authserver not found", 404
 
@@ -58,7 +68,8 @@ async def oauth_start():
         did, handle, pds_url = None, None, None
         login_hint = None
         authserver_url = (
-            await resolve_authserver_from_pds(client, username, pdskv) or username
+            await resolve_authserver_from_pds(client, PdsUrl(username), authserverkv)
+            or username
         )
 
     else:
@@ -175,10 +186,7 @@ async def oauth_callback():
         identity = await resolve_identity(client, did, didkv=didkv)
         if not identity:
             return "could not resolve identity", 500
-        did, handle, did_doc = identity
-        pds_url = pds_endpoint_from_doc(did_doc)
-        if not pds_url:
-            return "could not resolve pds", 500
+        did, handle, pds_url = identity
         authserver_url = await resolve_authserver_from_pds(
             client,
             pds_url,

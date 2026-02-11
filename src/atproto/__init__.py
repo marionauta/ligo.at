@@ -1,6 +1,7 @@
+import asyncio
 from os import getenv
 from re import match as regex_match
-from typing import Any
+from typing import Any, TypeGuard
 
 from aiodns import DNSResolver
 from aiodns import error as dns_error
@@ -9,6 +10,7 @@ from aiohttp.client import ClientResponse, ClientSession
 from src.security import is_safe_url
 
 from .kv import KV, nokv
+from .types import DID, AuthserverUrl, Handle, PdsUrl
 from .validator import is_valid_authserver_meta
 
 PLC_DIRECTORY = getenv("PLC_DIRECTORY_URL") or "https://plc.directory"
@@ -16,28 +18,46 @@ HANDLE_REGEX = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA
 DID_REGEX = r"^did:[a-z]+:[a-zA-Z0-9._:%-]*[a-zA-Z0-9._-]$"
 
 
-type AuthserverUrl = str
-type PdsUrl = str
-type DID = str
-
-
-def is_valid_handle(handle: str) -> bool:
+def is_valid_handle(handle: str) -> TypeGuard[Handle]:
     return regex_match(HANDLE_REGEX, handle) is not None
 
 
-def is_valid_did(did: str) -> bool:
+def is_valid_did(did: str) -> TypeGuard[DID]:
     return regex_match(DID_REGEX, did) is not None
 
 
 async def resolve_identity(
     client: ClientSession,
     query: str,
-    didkv: KV = nokv,
-) -> tuple[str, str, dict[str, Any]] | None:
+    didkv: KV[Handle, DID] = nokv,
+    pdskv: KV[DID, PdsUrl] = nokv,
+) -> tuple[DID, Handle, PdsUrl] | None:
+    ((done,), _) = await asyncio.wait(
+        (
+            asyncio.create_task(
+                resolve_identity_microcosm(client, query, didkv=didkv, pdskv=pdskv),
+                name="microcosm",
+            ),
+            asyncio.create_task(
+                resolve_identity_raw(client, query, didkv=didkv, pdskv=pdskv),
+                name="raw",
+            ),
+        ),
+        return_when=asyncio.FIRST_COMPLETED,
+    )
+    return done.result()
+
+
+async def resolve_identity_raw(
+    client: ClientSession,
+    query: str,
+    didkv: KV[Handle, DID],
+    pdskv: KV[DID, PdsUrl],
+) -> tuple[DID, Handle, PdsUrl] | None:
     """Resolves an identity to a DID, handle and DID document, verifies handles bi directionally."""
 
     if is_valid_handle(query):
-        handle = query.lower()
+        handle = Handle(query.lower())
         did = await resolve_did_from_handle(client, handle, didkv)
         if not did:
             return None
@@ -47,9 +67,8 @@ async def resolve_identity(
         doc_handle = handle_from_doc(doc)
         if not doc_handle or doc_handle != handle:
             return None
-        return (did, handle, doc)
 
-    if is_valid_did(query):
+    elif is_valid_did(query):
         did = query
         doc = await resolve_doc_from_did(client, did)
         if not doc:
@@ -59,12 +78,40 @@ async def resolve_identity(
             return None
         if await resolve_did_from_handle(client, handle, didkv) != did:
             return None
-        return (did, handle, doc)
 
-    return None
+    else:
+        return None
+
+    pds_url = pds_endpoint_from_doc(doc)
+    if not pds_url:
+        return None
+    pdskv.set(did, value=pds_url)
+
+    return (did, handle, pds_url)
 
 
-def handle_from_doc(doc: dict[str, list[str]]) -> str | None:
+async def resolve_identity_microcosm(
+    client: ClientSession,
+    query: str,
+    didkv: KV[Handle, DID],
+    pdskv: KV[DID, PdsUrl],
+) -> tuple[DID, Handle, PdsUrl] | None:
+    base = "https://slingshot.microcosm.blue"
+    url = f"{base}/xrpc/com.bad-example.identity.resolveMiniDoc?identifier={query}"
+    response = await client.get(url)
+    if not response.ok:
+        return None
+    mini_doc: dict[str, str] = await response.json()
+    did, handle, pds = mini_doc["did"], mini_doc["handle"], mini_doc["pds"]
+    assert is_valid_did(did)
+    assert is_valid_handle(handle)
+    didkv.set(handle, value=did)
+    pds = PdsUrl(pds)
+    pdskv.set(did, value=pds)
+    return did, handle, pds
+
+
+def handle_from_doc(doc: dict[str, list[str]]) -> Handle | None:
     """Return all possible handles inside the DID document."""
 
     for aka in doc.get("alsoKnownAs", []):
@@ -78,9 +125,9 @@ def handle_from_doc(doc: dict[str, list[str]]) -> str | None:
 async def resolve_did_from_handle(
     client: ClientSession,
     handle: str,
-    kv: KV = nokv,
+    kv: KV[Handle, DID] = nokv,
     reload: bool = False,
-) -> str | None:
+) -> DID | None:
     """Returns the DID for a given handle."""
 
     if not is_valid_handle(handle):
@@ -96,7 +143,7 @@ async def resolve_did_from_handle(
 
     if did is not None and is_valid_did(did):
         kv.set(handle, value=did)
-        return did
+        return DID(did)
 
     return None
 
@@ -130,12 +177,14 @@ async def _resolve_did_from_handle_dns(handle: str) -> str | None:
     return None
 
 
-def pds_endpoint_from_doc(doc: dict[str, list[dict[str, str]]]) -> str | None:
+def pds_endpoint_from_doc(doc: dict[str, list[dict[str, str]]]) -> PdsUrl | None:
     """Returns the PDS endpoint from the DID document."""
 
     for service in doc.get("service", []):
         if service.get("id") == "#atproto_pds":
-            return service.get("serviceEndpoint")
+            url = service.get("serviceEndpoint")
+            if url is not None:
+                return PdsUrl(url)
     return None
 
 
@@ -199,7 +248,7 @@ async def resolve_authserver_from_pds(
     parsed: dict[str, list[str]] = await response.json()
     authserver_url = parsed["authorization_servers"][0]
     kv.set(pds_url, value=authserver_url)
-    return authserver_url
+    return AuthserverUrl(authserver_url)
 
 
 async def fetch_authserver_meta(

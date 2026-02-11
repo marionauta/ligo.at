@@ -1,12 +1,17 @@
-from typing import NamedTuple
+from typing import NamedTuple, NewType
+
+AuthserverUrl = NewType("AuthserverUrl", str)
+PdsUrl = NewType("PdsUrl", str)
+Handle = NewType("Handle", str)
+DID = NewType("DID", str)
 
 
 class OAuthAuthRequest(NamedTuple):
     state: str
     authserver_iss: str
-    did: str | None
-    handle: str | None
-    pds_url: str | None
+    did: DID | None
+    handle: Handle | None
+    pds_url: PdsUrl | None
     pkce_verifier: str
     scope: str
     dpop_authserver_nonce: str
@@ -14,9 +19,9 @@ class OAuthAuthRequest(NamedTuple):
 
 
 class OAuthSession(NamedTuple):
-    did: str
-    handle: str | None
-    pds_url: str
+    did: DID
+    handle: Handle | None
+    pds_url: PdsUrl
     authserver_iss: str
     access_token: str | None
     refresh_token: str | None

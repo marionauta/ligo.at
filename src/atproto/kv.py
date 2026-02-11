@@ -1,15 +1,18 @@
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import override
+from typing import Generic, TypeVar, override
+
+K = TypeVar("K", bound=str)
+V = TypeVar("V", bound=str)
 
 
-class KV(ABC):
+class KV(ABC, Generic[K, V]):
     @abstractmethod
-    def get(self, key: str) -> str | None:
+    def get(self, key: K) -> V | None:
         pass
 
     @abstractmethod
-    def set(self, key: str, value: str):
+    def set(self, key: K, value: V):
         pass
 
 

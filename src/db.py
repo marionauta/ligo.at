@@ -1,14 +1,15 @@
 import sqlite3
 from logging import Logger
 from sqlite3 import Connection
-from typing import override
+from typing import Generic, cast, override
 
 from flask import Flask, g
 
 from src.atproto.kv import KV as BaseKV
+from src.atproto.kv import K, V
 
 
-class KV(BaseKV):
+class KV(BaseKV, Generic[K, V]):
     db: Connection
     logger: Logger
     prefix: str
@@ -19,7 +20,7 @@ class KV(BaseKV):
         self.prefix = prefix
 
     @override
-    def get(self, key: str) -> str | None:
+    def get(self, key: K) -> V | None:
         cursor = self.db.cursor()
         row: dict[str, str] | None = cursor.execute(
             "select value from keyval where prefix = ? and key = ?",
@@ -27,11 +28,11 @@ class KV(BaseKV):
         ).fetchone()
         if row is not None:
             self.logger.debug(f"returning cached {self.prefix}({key})")
-            return row["value"]
+            return cast(V, row["value"])
         return None
 
     @override
-    def set(self, key: str, value: str):
+    def set(self, key: K, value: V):
         self.logger.debug(f"caching {self.prefix}({key}): {value}")
         cursor = self.db.cursor()
         _ = cursor.execute(

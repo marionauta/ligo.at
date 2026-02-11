@@ -8,14 +8,13 @@ from flask_htmx import HTMX
 from flask_htmx import make_response as htmx_response
 
 from src.atproto import (
-    PdsUrl,
     get_record,
     is_valid_did,
     resolve_did_from_handle,
     resolve_pds_from_did,
 )
 from src.atproto.oauth import pds_authed_req
-from src.atproto.types import OAuthSession
+from src.atproto.types import DID, Handle, OAuthSession, PdsUrl
 from src.auth import get_auth_session, save_auth_session
 from src.db import KV, close_db_connection, get_db, init_db
 from src.oauth import oauth
@@ -52,8 +51,8 @@ async def page_profile(atid: str):
     reload = request.args.get("reload") is not None
 
     db = get_db(app)
-    didkv = KV(db, app.logger, "did_from_handle")
-    pdskv = KV(db, app.logger, "pds_from_did")
+    didkv = KV[Handle, DID](db, app.logger, "did_from_handle")
+    pdskv = KV[DID, PdsUrl](db, app.logger, "pds_from_did")
 
     async with ClientSession() as client:
         if atid.startswith("@"):
