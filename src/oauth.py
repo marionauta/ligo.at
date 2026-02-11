@@ -33,6 +33,8 @@ from src.security import is_safe_url
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 
+OAUTH_SCOPE = "atproto include:at.ligo.authFull"
+
 
 @oauth.get("/start")
 async def oauth_start():
@@ -86,7 +88,6 @@ async def oauth_start():
 
     # Auth
     dpop_private_jwk: Key = JsonWebKey.generate_key("EC", "P-256", is_private=True)
-    scope = "atproto transition:generic"
 
     host = request.host
     metadata_endpoint = url_for("oauth.oauth_metadata")
@@ -105,7 +106,7 @@ async def oauth_start():
         login_hint,
         client_id,
         redirect_uri,
-        scope,
+        OAUTH_SCOPE,
         CLIENT_SECRET_JWK,
         dpop_private_jwk,
     )
@@ -127,7 +128,7 @@ async def oauth_start():
         handle,
         pds_url,
         pkce_verifier,
-        scope,
+        OAUTH_SCOPE,
         dpop_authserver_nonce,
         dpop_private_jwk.as_json(is_private=True),
     )
@@ -197,7 +198,6 @@ async def oauth_callback():
 
     await client.close()
 
-    assert row.scope == tokens.scope
     assert pds_url is not None
 
     current_app.logger.debug("storing user oauth session")
@@ -230,7 +230,7 @@ def oauth_metadata():
         {
             "client_id": f"https://{host}{metadata_endpoint}",
             "grant_types": ["authorization_code", "refresh_token"],
-            "scope": "atproto transition:generic",
+            "scope": OAUTH_SCOPE,
             "response_types": ["code"],
             "redirect_uris": [
                 f"https://{host}{callback_endpoint}",
