@@ -168,7 +168,7 @@ async def initial_token_request(
 async def refresh_token_request(
     client: ClientSession,
     user: OAuthSession,
-    app_url: str,
+    app_host: str,
     client_secret_jwk: Key,
 ) -> tuple[OAuthTokens, str]:
     authserver_url = user.authserver_iss
@@ -179,7 +179,7 @@ async def refresh_token_request(
         raise Exception("missing authserver meta")
 
     # Construct token request fields
-    client_id = f"{app_url}oauth/metadata"
+    client_id = f"https://{app_host}/oauth/metadata"
 
     # Self-signed JWT using the private key declared in client metadata JWKS (confidential client)
     client_assertion = _client_assertion_jwt(
@@ -255,7 +255,8 @@ async def pds_authed_req(
         )
 
         async with hardened_http.get_session() as session:
-            response = await session.post(
+            response = await session.request(
+                method,
                 url,
                 headers={
                     "Authorization": f"DPoP {access_token}",

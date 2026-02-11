@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import NamedTuple, NewType
 
 AuthserverUrl = NewType("AuthserverUrl", str)
@@ -25,6 +26,16 @@ class OAuthSession(NamedTuple):
     authserver_iss: str
     access_token: str | None
     refresh_token: str | None
+    expires_at: int | None
     dpop_authserver_nonce: str
     dpop_pds_nonce: str | None
     dpop_private_jwk: str
+
+    def is_expired(self, now: datetime | None = None) -> bool:
+        if self.expires_at is None:
+            return True
+
+        if now is None:
+            now = datetime.now(timezone.utc)
+
+        return self.expires_at < int(now.timestamp())

@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, cast
 
 from aiohttp.client import ClientSession
 from flask import Flask, g, redirect, render_template, request, session, url_for
@@ -15,7 +15,11 @@ from src.atproto import (
 )
 from src.atproto.oauth import pds_authed_req
 from src.atproto.types import DID, Handle, OAuthSession, PdsUrl
-from src.auth import get_auth_session, save_auth_session
+from src.auth import (
+    get_auth_session,
+    refresh_auth_session,
+    save_auth_session,
+)
 from src.db import KV, close_db_connection, get_db, init_db
 from src.oauth import oauth
 
@@ -32,8 +36,12 @@ async def load_user_to_context():
     g.user = get_auth_session(session)
 
 
-def get_user() -> OAuthSession | None:
-    return g.user
+async def get_user() -> OAuthSession | None:
+    user = cast(OAuthSession | None, g.user)
+    if user is not None and user.is_expired():
+        async with ClientSession() as client:
+            user = await refresh_auth_session(session, client, user)
+    return user
 
 
 @app.teardown_appcontext
@@ -114,8 +122,8 @@ if app.debug:
 
 
 @app.get("/login")
-def page_login():
-    if get_user() is not None:
+async def page_login():
+    if await get_user() is not None:
         return redirect("/editor")
     return render_template("login.html", auth_servers=auth_servers)
 
@@ -138,7 +146,7 @@ def auth_logout():
 
 @app.get("/editor")
 async def page_editor():
-    user = get_user()
+    user = await get_user()
     if user is None:
         return redirect("/login", 302)
 
@@ -167,7 +175,7 @@ async def page_editor():
 
 @app.post("/editor/profile")
 async def post_editor_profile():
-    user = get_user()
+    user = await get_user()
     if user is None:
         url = url_for("auth_logout")
         return htmx_response(redirect=url) if htmx else redirect(url, 303)
@@ -211,7 +219,7 @@ async def post_editor_profile():
 
 @app.post("/editor/links")
 async def post_editor_links():
-    user = get_user()
+    user = await get_user()
     if user is None:
         url = url_for("auth_logout")
         return htmx_response(redirect=url) if htmx else redirect(url, 303)

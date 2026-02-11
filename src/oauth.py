@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 from aiohttp.client import ClientSession
@@ -200,6 +201,8 @@ async def oauth_callback():
     assert pds_url is not None
 
     current_app.logger.debug("storing user oauth session")
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=tokens.expires_in or 300)
     oauth_session = OAuthSession(
         did,
         handle,
@@ -207,6 +210,7 @@ async def oauth_callback():
         authserver_iss,
         tokens.access_token,
         tokens.refresh_token,
+        int(expires_at.timestamp()),
         dpop_authserver_nonce,
         None,
         auth_request.dpop_private_jwk,

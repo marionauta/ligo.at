@@ -1,8 +1,12 @@
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple, TypeVar
 
-from flask import current_app
+from aiohttp.client import ClientSession
+from authlib.jose import JsonWebKey
+from flask import current_app, request
 from flask.sessions import SessionMixin
 
+from src.atproto.oauth import refresh_token_request
 from src.atproto.types import OAuthAuthRequest, OAuthSession
 
 
@@ -35,7 +39,35 @@ def _set_into_session(session: SessionMixin, key: str, value: NamedTuple):
 
 
 def _delete_from_session(session: SessionMixin, key: str):
-    del session[key]
+    try:
+        del session[key]
+    except KeyError:
+        pass
+
+
+async def refresh_auth_session(
+    session: SessionMixin,
+    client: ClientSession,
+    current: OAuthSession,
+) -> OAuthSession | None:
+    current_app.logger.debug("refreshing oauth tokens")
+    CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
+    tokens, dpop_authserver_nonce = await refresh_token_request(
+        client=client,
+        user=current,
+        app_host=request.host,
+        client_secret_jwk=CLIENT_SECRET_JWK,
+    )
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=tokens.expires_in or 300)
+    user = current._replace(
+        access_token=tokens.access_token,
+        refresh_token=tokens.refresh_token,
+        expires_at=int(expires_at.timestamp()),
+        dpop_pds_nonce=dpop_authserver_nonce,
+    )
+    save_auth_session(session, user)
+    return user
 
 
 OAuthClass = TypeVar("OAuthClass")
