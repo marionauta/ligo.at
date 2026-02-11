@@ -26,6 +26,7 @@ class OAuthTokens(NamedTuple):
 # Prepares and sends a pushed auth request (PAR) via HTTP POST to the Authorization Server.
 # Returns "state" id HTTP response on success, without checking HTTP response status
 async def send_par_auth_request(
+    hardened_client: ClientSession,
     authserver_url: str,
     authserver_meta: dict[str, str],
     login_hint: str | None,
@@ -70,16 +71,15 @@ async def send_par_auth_request(
 
     # IMPORTANT: Pushed Authorization Request URL is untrusted input, SSRF mitigations are needed
     assert is_safe_url(par_url)
-    async with hardened_http.get_session() as session:
-        resp = await session.post(
-            par_url,
-            headers={
-                "Content-Type": "application/x-www-form-urlencoded",
-                "DPoP": dpop_proof,
-            },
-            data=par_body,
-        )
-        respjson = await resp.json()
+    resp = await hardened_client.post(
+        par_url,
+        headers={
+            "Content-Type": "application/x-www-form-urlencoded",
+            "DPoP": dpop_proof,
+        },
+        data=par_body,
+    )
+    respjson = await resp.json()
 
     # Handle DPoP missing/invalid nonce error by retrying with server-provided nonce
     if resp.status == 400 and respjson["error"] == "use_dpop_nonce":

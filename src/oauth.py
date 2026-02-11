@@ -29,7 +29,7 @@ from src.auth import (
     save_auth_session,
 )
 from src.db import KV, get_db
-from src.security import is_safe_url
+from src.security import hardened_http, is_safe_url
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 
@@ -100,7 +100,9 @@ async def oauth_start():
 
     CLIENT_SECRET_JWK = JsonWebKey.import_key(current_app.config["CLIENT_SECRET_JWK"])
 
+    client = hardened_http.get_session()
     pkce_verifier, state, dpop_authserver_nonce, resp = await send_par_auth_request(
+        client,
         authserver_url,
         authserver_meta,
         login_hint,
@@ -119,8 +121,9 @@ async def oauth_start():
 
     respjson: dict[str, str] = await resp.json()
     par_request_uri: str = respjson["request_uri"]
-    current_app.logger.debug(f"saving oauth_auth_request to DB  state={state}")
+    await client.close()
 
+    current_app.logger.debug(f"saving oauth_auth_request to DB state={state}")
     oauth_request = OAuthAuthRequest(
         state,
         authserver_meta["issuer"],
