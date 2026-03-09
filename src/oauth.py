@@ -43,7 +43,7 @@ async def oauth_start():
     if not username:
         return redirect(url_for("page_login"), 303)
 
-    db = get_db(current_app)
+    db = get_db(current_app, name="keyval")
     didkv = KV[Handle, DID](db, current_app.logger, "did_from_handle")
     pdskv = KV[DID, PdsUrl](db, current_app.logger, "pds_from_did")
     authserverkv = KV[PdsUrl, AuthserverUrl](
@@ -177,7 +177,7 @@ async def oauth_callback():
 
     row = auth_request
 
-    db = get_db(current_app)
+    db = get_db(current_app, name="keyval")
     didkv = KV(db, current_app.logger, "did_from_handle")
     authserverkv = KV(db, current_app.logger, "authserver_from_pds")
 

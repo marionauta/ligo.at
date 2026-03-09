@@ -20,6 +20,7 @@ from src.auth import (
     refresh_auth_session,
     save_auth_session,
 )
+from src.config import AuthServer, Config
 from src.db import KV, close_db_connection, get_db, init_db
 from src.oauth import oauth
 
@@ -28,7 +29,8 @@ _ = app.config.from_prefixed_env()
 app.register_blueprint(oauth)
 htmx = HTMX()
 htmx.init_app(app)
-init_db(app)
+init_db(app, name="config")
+init_db(app, name="keyval")
 
 
 @app.before_request
@@ -58,7 +60,7 @@ def page_home():
 async def page_profile(atid: str):
     reload = request.args.get("reload") is not None
 
-    db = get_db(app)
+    db = get_db(app, name="keyval")
     didkv = KV[Handle, DID](db, app.logger, "did_from_handle")
     pdskv = KV[DID, PdsUrl](db, app.logger, "pds_from_did")
 
@@ -103,28 +105,14 @@ async def page_profile(atid: str):
     )
 
 
-class AuthServer(NamedTuple):
-    name: str
-    url: str
-
-
-auth_servers: list[AuthServer] = [
-    AuthServer("Bluesky", "https://bsky.social"),
-    AuthServer("Blacksky", "https://blacksky.app"),
-    AuthServer("Northsky", "https://northsky.social"),
-    AuthServer("tangled.org", "https://tngl.sh"),
-    AuthServer("Witchraft Systems", "https://pds.witchcraft.systems"),
-    AuthServer("selfhosted.social", "https://selfhosted.social"),
-]
-
-if app.debug:
-    auth_servers.append(AuthServer("pds.rip", "https://pds.rip"))
-
-
 @app.get("/login")
 async def page_login():
     if await get_user() is not None:
         return redirect("/editor")
+    config = Config(app)
+    auth_servers = config.auth_servers()
+    if app.debug:
+        auth_servers.append(AuthServer("pds.rip", "https://pds.rip"))
     return render_template("login.html", auth_servers=auth_servers)
 
 

@@ -2,6 +2,7 @@ import asyncio
 from os import getenv
 from re import match as regex_match
 from typing import Any, TypeGuard
+from urllib.parse import urljoin
 
 from aiodns import DNSResolver
 from aiodns import error as dns_error
@@ -96,8 +97,10 @@ async def resolve_identity_microcosm(
     didkv: KV[Handle, DID],
     pdskv: KV[DID, PdsUrl],
 ) -> tuple[DID, Handle, PdsUrl] | None:
-    base = "https://slingshot.microcosm.blue"
-    url = f"{base}/xrpc/com.bad-example.identity.resolveMiniDoc?identifier={query}"
+    url = urljoin(
+        "https://slingshot.microcosm.blue",
+        f"/xrpc/com.bad-example.identity.resolveMiniDoc?identifier={query}",
+    )
     response = await client.get(url)
     if not response.ok:
         return None
@@ -241,7 +244,7 @@ async def resolve_authserver_from_pds(
         return authserver_url
 
     assert is_safe_url(pds_url)
-    endpoint = f"{pds_url}/.well-known/oauth-protected-resource"
+    endpoint = urljoin(pds_url, "/.well-known/oauth-protected-resource")
     response = await client.get(endpoint)
     if response.status != 200:
         return None
@@ -258,7 +261,7 @@ async def fetch_authserver_meta(
     """Returns metadata from the authserver"""
 
     assert is_safe_url(authserver_url)
-    endpoint = f"{authserver_url}/.well-known/oauth-authorization-server"
+    endpoint = urljoin(authserver_url, "/.well-known/oauth-authorization-server")
     response = await client.get(endpoint)
     if not response.ok:
         return None
@@ -278,7 +281,8 @@ async def get_record(
     """Retrieve record from PDS. Verifies type is the same as collection name."""
 
     params = {"repo": repo, "collection": collection, "rkey": record}
-    response = await client.get(f"{pds}/xrpc/com.atproto.repo.getRecord", params=params)
+    url = urljoin(pds, "/xrpc/com.atproto.repo.getRecord")
+    response = await client.get(url, params=params)
     if not response.ok:
         return None
     parsed = await response.json()
