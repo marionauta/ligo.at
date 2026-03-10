@@ -49,7 +49,7 @@ def get_db(app: Flask, name: DatabaseName) -> sqlite3.Connection:
     global_key = f"{name}_db"
     db: sqlite3.Connection | None = g.get(global_key, None)
     if db is None:
-        db_path: str = app.config[f"{name.upper()}_DB_URL"]
+        db_path: str = app.config.get(f"{name.upper()}_DB_URL", f"{name}.db")
         db = sqlite3.connect(db_path, check_same_thread=False)
         setattr(g, global_key, db)
         # return rows as dict-like objects

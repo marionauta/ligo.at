@@ -86,8 +86,11 @@ async def page_profile(atid: str):
             load_profile(client, pds, did, reload=reload),
             load_links(client, pds, did, reload=reload),
         )
-    if profile is None or link_sections is None:
-        return render_template("error.html", message="profile not found"), 404
+
+    if profile is None:
+        profile = {}
+    if link_sections is None:
+        link_sections = []
 
     if reload:
         # remove the ?reload parameter
@@ -99,7 +102,6 @@ async def page_profile(atid: str):
     return render_template(
         "profile.html",
         profile=profile,
-        links=link_sections[0].links,
         sections=link_sections,
         athref=athref,
     )
