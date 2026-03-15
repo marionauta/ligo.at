@@ -3,8 +3,15 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/.
  *
  * Copyright (c) 2026 Jake Lazaroff
+ * Copyright (c) 2026 ligo.at contributors
  *
- * Repository: https://tangled.org/jakelazaroff.com/actor-typeahead
+ * Changes
+ *   2026-03-15
+ *     Fix: Correctly count rows of actors.
+ *     Fix: Disable browser autocomplete to not collide with the typeahead.
+ *     Fix: Remove hardcoded `font-family`.
+ *     New: You can press `Enter` while on the field to send the form.
+ *     New: You can press `ArrowDown` while on the field to open the dropdown menu.
  */
 
 const template = document.createElement("template");
@@ -24,7 +31,6 @@ template.innerHTML = `
       --padding-menu-inherited: var(--padding-menu, 4px);
       display: block;
       position: relative;
-      font-family: system-ui;
     }
 
     *, *::before, *::after {
@@ -166,6 +172,8 @@ export default class ActorTypeahead extends HTMLElement {
   /** @type {Array<{ handle: string; avatar: string }>} */
   #actors = [];
   #index = -1;
+  /** @type {HTMLInputElement} */
+  #input;
   #pressed = false;
 
   constructor() {
@@ -179,6 +187,11 @@ export default class ActorTypeahead extends HTMLElement {
     this.#shadow.addEventListener("pointerdown", this);
     this.#shadow.addEventListener("pointerup", this);
     this.#shadow.addEventListener("click", this);
+    this.#input = this.querySelector("input");
+    if (!this.#input) {
+      console.error(`Missing <input> tag inside <${ActorTypeahead.tag}>`);
+    }
+    this.#input.autocomplete = "off";
   }
 
   get #rows() {
@@ -224,13 +237,17 @@ export default class ActorTypeahead extends HTMLElement {
     switch (evt.key) {
       case "ArrowDown":
         evt.preventDefault();
-        this.#index = Math.min(this.#index + 1, this.#rows - 1);
+        if (this.#actors.length === 0) {
+          this.#oninput(evt);
+          break;
+        }
+        this.#index = Math.min(this.#index + 1, this.#actors.length - 1);
         this.#render();
         break;
 
       case "PageDown":
         evt.preventDefault();
-        this.#index = this.#rows - 1;
+        this.#index = this.#actors.length - 1;
         this.#render();
         break;
 
@@ -254,12 +271,13 @@ export default class ActorTypeahead extends HTMLElement {
         break;
 
       case "Enter":
-        evt.preventDefault();
-        this.#shadow
-          .querySelectorAll("button")
-          [
-            this.#index
-          ]?.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+        const selected = this.#shadow.querySelectorAll("button")[this.#index];
+        if (selected) {
+          evt.preventDefault();
+          selected.dispatchEvent(
+            new PointerEvent("pointerup", { bubbles: true }),
+          );
+        }
         break;
     }
   }
@@ -327,13 +345,12 @@ export default class ActorTypeahead extends HTMLElement {
   #onpointerup(evt) {
     this.#pressed = false;
 
-    this.querySelector("input")?.focus();
+    this.#input.focus();
 
     const button = evt.target?.closest("button");
-    const input = this.querySelector("input");
-    if (!input || !button) return;
+    if (!button) return;
 
-    input.value = button.dataset.handle || "";
+    this.#input.value = button.dataset.handle || "";
     this.#actors = [];
     this.#render();
   }
