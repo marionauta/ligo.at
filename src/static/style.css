@@ -6,6 +6,7 @@
     --color-border: #bbb;
     --color-border-secondary: #ddd;
     --color-success: #080;
+    --size-border-radius: 2px;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -59,7 +60,7 @@ button,
 input {
     background: var(--color-background-secondary);
     border: 1px solid var(--color-border);
-    border-radius: 2px;
+    border-radius: var(--size-border-radius);
     box-sizing: border-box;
     color: var(--color-text);
     font: inherit;
@@ -100,6 +101,12 @@ input[type="submit"]:last-of-type {
     font-weight: unset;
 }
 
+actor-typeahead {
+    --color-hover: var(--color-background-secondary);
+    --padding-menu: 2px;
+    --radius: var(--size-border-radius);
+}
+
 editor-label {
     display: block;
 }
@@ -122,7 +129,7 @@ link-editor-item {
     padding: 0.25em;
     background: var(--color-background);
     border: 1px solid var(--color-border-secondary);
-    border-radius: 2px;
+    border-radius: var(--size-border-radius);
 }
 
 link-editor-header {
@@ -155,7 +162,7 @@ link-editor-buttons {
 
 still-building {
     background-color: var(--color-background-secondary);
-    border-radius: 2px;
+    border-radius: var(--size-border-radius);
     display: block;
 }
 
@@ -167,7 +174,7 @@ still-building .title {
         #333 20px,
         #333 40px
     );
-    border-radius: 2px 2px 0 0;
+    border-radius: var(--size-border-radius) var(--size-border-radius) 0 0;
     color: #fff;
     display: block;
     font-size: 1.2em;
