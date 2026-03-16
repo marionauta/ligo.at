@@ -71,7 +71,7 @@ def handle_commit(
 
 
 def get_database(config: dict[str, str | None]) -> sqlite3.Connection | None:
-    database_name = config.get("FLASK_DATABASE_URL") or "ligoat.db"
+    database_name = config.get("FLASK_KEYVAL_DB_URL") or "keyval.db"
     return sqlite3.connect(database_name)
 
 
