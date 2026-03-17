@@ -6,6 +6,10 @@
  * Copyright (c) 2026 ligo.at contributors
  *
  * Changes
+ *   2026-03-17
+ *     Fix: Abort previous HTTP request before starting the next.
+ *     New: Add 250ms debounce to oninput.
+ *     New: `host` attribute can be set to "location" to use window.location.
  *   2026-03-15
  *     Fix: Correctly count rows of actors.
  *     Fix: Disable browser autocomplete to not collide with the typeahead.
@@ -122,7 +126,7 @@ function clone(tmpl) {
 }
 
 /**
- * @attribute {string} [host] - The host to which to make the typeahead API call.
+ * @attribute {string} [host] - The host to which to make the typeahead API call. If set to "location" it uses window.location.
  * @attribute {number} [rows] - The maximum number of rows to display in the dropdown.
  *
  * @csspart menu - The dropdown menu.
@@ -174,7 +178,11 @@ export default class ActorTypeahead extends HTMLElement {
   #index = -1;
   /** @type {HTMLInputElement} */
   #input;
+  /** @type {number | undefined} */
+  #oninputTimeoutId = undefined;
   #pressed = false;
+  /** @type {AbortController | undefined} */
+  #controller = undefined;
 
   constructor() {
     super();
@@ -199,6 +207,14 @@ export default class ActorTypeahead extends HTMLElement {
 
     if (Number.isNaN(rows)) return 5;
     return rows;
+  }
+
+  /** @type {string} */
+  get #host() {
+    const host = this.getAttribute("host");
+    return host === "location"
+      ? window.location
+      : host || "https://public.api.bsky.app";
   }
 
   /** @param {Event} evt */
@@ -283,7 +299,17 @@ export default class ActorTypeahead extends HTMLElement {
   }
 
   /** @param {InputEvent & { target: HTMLInputElement }} evt */
-  async #oninput(evt) {
+  #oninput(evt) {
+    clearTimeout(this.#oninputTimeoutId);
+    this.#oninputTimeoutId = setTimeout(
+      this.#oninputDebounced.bind(this),
+      250,
+      evt,
+    );
+  }
+
+  /** @param {InputEvent & { target: HTMLInputElement }} evt */
+  async #oninputDebounced(evt) {
     const query = evt.target?.value;
     if (!query) {
       this.#actors = [];
@@ -291,16 +317,23 @@ export default class ActorTypeahead extends HTMLElement {
       return;
     }
 
-    const host = this.getAttribute("host") ?? "https://public.api.bsky.app";
-    const url = new URL("xrpc/app.bsky.actor.searchActorsTypeahead", host);
+    const url = new URL(
+      "xrpc/app.bsky.actor.searchActorsTypeahead",
+      this.#host,
+    );
     url.searchParams.set("q", query);
     url.searchParams.set("limit", `${this.#rows}`);
 
-    const res = await fetch(url);
-    const json = await res.json();
-    this.#actors = json.actors;
-    this.#index = -1;
-    this.#render();
+    this.#controller?.abort();
+    this.#controller = new AbortController();
+
+    try {
+      const res = await fetch(url, { signal: this.#controller.signal });
+      const json = await res.json();
+      this.#actors = json.actors;
+      this.#index = -1;
+      this.#render();
+    } catch {}
   }
 
   /** @param {Event} evt */
