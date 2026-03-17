@@ -6,6 +6,7 @@ requires-python = ">=3.14"
 members = [
     "ingestor",
     "ligo-at",
+    "xrpc",
 ]
 
 [[package]]
@@ -397,6 +398,7 @@ dependencies = [
     { name = "flask-htmx" },
     { name = "gunicorn" },
     { name = "ingestor" },
+    { name = "xrpc" },
 ]
 
 [package.metadata]
@@ -408,6 +410,7 @@ requires-dist = [
     { name = "flask-htmx", specifier = ">=0.4.0" },
     { name = "gunicorn", specifier = ">=25.0.3" },
     { name = "ingestor", editable = "packages/ingestor" },
+    { name = "xrpc", editable = "packages/xrpc" },
 ]
 
 [[package]]
@@ -597,6 +600,11 @@ sdist = { url = "https://files.pythonhosted.org/packages/5a/70/1469ef1d3542ae7c2
 wheels = [
     { url = "https://files.pythonhosted.org/packages/ad/e4/8d97cca767bcc1be76d16fb76951608305561c6e056811587f36cb1316a8/werkzeug-3.1.5-py3-none-any.whl", hash = "sha256:5111e36e91086ece91f93268bb39b4a35c1e6f1feac762c9c822ded0a4e322dc", size = 225025, upload-time = "2026-01-08T17:49:21.859Z" },
 ]
+
+[[package]]
+name = "xrpc"
+version = "0.0.0"
+source = { editable = "packages/xrpc" }
 
 [[package]]
 name = "yarl"

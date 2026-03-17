@@ -6,6 +6,7 @@ from aiohttp.client import ClientSession
 from flask import Flask, g, redirect, render_template, request, session, url_for
 from flask_htmx import HTMX
 from flask_htmx import make_response as htmx_response
+from xrpc import xrpc
 
 from src.atproto import (
     get_record,
@@ -27,6 +28,7 @@ from src.oauth import oauth
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
 app.register_blueprint(oauth)
+app.register_blueprint(xrpc)
 htmx = HTMX()
 htmx.init_app(app)
 init_db(app, name="config")

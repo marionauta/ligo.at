@@ -21,7 +21,7 @@
       <form action="{{ url_for('auth_login') }}" method="post">
         <label>
           <span>Handle</span>
-          <actor-typeahead>
+          <actor-typeahead host="location">
             <input
               type="text"
               name="username"
