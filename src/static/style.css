@@ -72,7 +72,6 @@ input {
 button,
 input[type="submit"] {
     font-weight: 600;
-    cursor: pointer;
     padding: 0.25em;
 }
 

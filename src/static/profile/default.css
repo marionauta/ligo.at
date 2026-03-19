@@ -16,12 +16,7 @@ body {
     background: var(--color-background);
     color: var(--color-text);
     font-size: 18px;
-    font-family: "Inter", system-ui, sans-serif, ui-sans-serif;
-    font-feature-settings:
-        "kern" 1,
-        "liga" 1,
-        "cv05" 1,
-        "tnum" 1;
+    font-family: "Work Sans", system-ui, sans-serif, ui-sans-serif;
     font-optical-sizing: auto;
     font-variation-settings: normal;
     font-weight: 400;

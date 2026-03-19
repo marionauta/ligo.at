@@ -17,10 +17,10 @@
     <meta property="profile:username" content="{{ profile.handle }}" />
     {% endif %}
     {% if athref %}<link rel="alternate" href="{{ athref }}" />{% endif %}
+    <base target="_blank" />
     <!-- styles and favicons -->
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <base target="_blank" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='inter.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='worksans.css') }}" />
     <link rel="stylesheet" href="{{ url_for('static', filename='profile/default.css') }}" />
     <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='favicon-16.png') }}" />
     <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='favicon-32.png') }}" />
