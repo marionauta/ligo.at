@@ -27,7 +27,16 @@ Some example configuration files are provided in the `etc` folder. They assume t
 - A `Caddyfile` that configures a [caddy][caddy] reverse proxy.
 - Two systemd service files. They can be used to run both the server and the jetstream ingestor.
 
+## thanks
+
+Libraries and projects used to build `ligo.at`.
+
+- [actor-typeahead.js][atjs] -- Handle autocompletion JavaScript library, [forked](src/static/actor-typeahead.js).
+- [typeahead.waow.tech][twt] -- Alternative `searchActorsTypeahead` provider.
+
 [atproto]: https://atproto.com
 [caddy]: https://caddyserver.com/
 [jetstream]: https://atproto.wiki/en/wiki/reference/networking/jetstream
 [uv]: https://docs.astral.sh/uv/
+[atjs]: https://tangled.org/jakelazaroff.com/actor-typeahead
+[twt]: https://typeahead.waow.tech
