@@ -8,6 +8,7 @@
  * Changes
  *   2026-03-19
  *     New: Attribute `client` to send via the `X-Client` HTTP header.
+ *     Fix: Hide avatars with no `src`.
  *   2026-03-17
  *     Fix: Abort previous HTTP request before starting the next.
  *     New: Add 250ms debounce to oninput.
@@ -98,6 +99,8 @@ template.innerHTML = `
       width: 100%;
       height: 100%;
     }
+
+    .img:not([src]) { display: none }
 
     .handle {
       white-space: nowrap;
