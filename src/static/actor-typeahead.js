@@ -6,6 +6,8 @@
  * Copyright (c) 2026 ligo.at contributors
  *
  * Changes
+ *   2026-03-19
+ *     New: Attribute `client` to send via the `X-Client` HTTP header.
  *   2026-03-17
  *     Fix: Abort previous HTTP request before starting the next.
  *     New: Add 250ms debounce to oninput.
@@ -127,6 +129,7 @@ function clone(tmpl) {
 
 /**
  * @attribute {string} [host] - The host to which to make the typeahead API call. If set to "location" it uses window.location.
+ * @attribute {string} [client] - The optional value to send in the X-Client HTTP header.
  * @attribute {number} [rows] - The maximum number of rows to display in the dropdown.
  *
  * @csspart menu - The dropdown menu.
@@ -327,8 +330,17 @@ export default class ActorTypeahead extends HTMLElement {
     this.#controller?.abort();
     this.#controller = new AbortController();
 
+    const headers = {};
+    const client = this.getAttribute("client");
+    if (client) {
+      headers["X-Client"] = client;
+    }
+
     try {
-      const res = await fetch(url, { signal: this.#controller.signal });
+      const res = await fetch(url, {
+        headers,
+        signal: this.#controller.signal,
+      });
       const json = await res.json();
       this.#actors = json.actors;
       this.#index = -1;
