@@ -44,6 +44,7 @@ async def resolve_identity(
                 name="raw",
             ),
         ),
+        # TODO: should be first that is not None
         return_when=asyncio.FIRST_COMPLETED,
     )
     return done.result()
@@ -184,7 +185,9 @@ def pds_endpoint_from_doc(doc: dict[str, list[dict[str, str]]]) -> PdsUrl | None
     """Returns the PDS endpoint from the DID document."""
 
     for service in doc.get("service", []):
-        if service.get("id") == "#atproto_pds":
+        type = service.get("type")
+        id = service.get("id", "")
+        if type == "AtprotoPersonalDataServer" or id.endswith("#atproto_pds"):
             url = service.get("serviceEndpoint")
             if url is not None:
                 return PdsUrl(url)
@@ -204,7 +207,7 @@ async def resolve_pds_from_did(
     doc = await resolve_doc_from_did(client, did)
     if doc is None:
         return None
-    pds = doc["service"][0]["serviceEndpoint"]
+    pds = pds_endpoint_from_doc(doc)
     if pds is None:
         return None
     kv.set(did, value=pds)
