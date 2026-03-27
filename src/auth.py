@@ -2,12 +2,11 @@ from datetime import datetime, timedelta, timezone
 from typing import NamedTuple, TypeVar
 
 from aiohttp.client import ClientSession
+from atproto.oauth import refresh_token_request
+from atproto.types import OAuthAuthRequest, OAuthSession
 from authlib.jose import JsonWebKey
 from flask import current_app, request
 from flask.sessions import SessionMixin
-
-from src.atproto.oauth import refresh_token_request
-from src.atproto.types import OAuthAuthRequest, OAuthSession
 
 
 def save_auth_request(session: SessionMixin, request: OAuthAuthRequest):

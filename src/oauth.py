@@ -3,18 +3,19 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 from aiohttp.client import ClientSession
-from authlib.jose import JsonWebKey, Key
-from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
-
-from src.atproto import (
-    fetch_authserver_meta,
+from atproto import (
     is_valid_did,
     is_valid_handle,
     resolve_authserver_from_pds,
     resolve_identity,
 )
-from src.atproto.oauth import initial_token_request, send_par_auth_request
-from src.atproto.types import (
+from atproto.oauth import (
+    fetch_authserver_meta,
+    initial_token_request,
+    send_par_auth_request,
+)
+from atproto.security import hardened_http, is_safe_url
+from atproto.types import (
     DID,
     AuthserverUrl,
     Handle,
@@ -22,6 +23,9 @@ from src.atproto.types import (
     OAuthSession,
     PdsUrl,
 )
+from authlib.jose import JsonWebKey, Key
+from flask import Blueprint, current_app, jsonify, redirect, request, session, url_for
+
 from src.auth import (
     delete_auth_request,
     get_auth_request,
@@ -29,7 +33,6 @@ from src.auth import (
     save_auth_session,
 )
 from src.db import KV, get_db
-from src.security import hardened_http, is_safe_url
 
 oauth = Blueprint("oauth", __name__, url_prefix="/oauth")
 

@@ -8,11 +8,9 @@ from aiodns import DNSResolver
 from aiodns import error as dns_error
 from aiohttp.client import ClientResponse, ClientSession
 
-from src.security import is_safe_url
-
 from .kv import KV, nokv
+from .security import is_safe_url
 from .types import DID, AuthserverUrl, Handle, PdsUrl
-from .validator import is_valid_authserver_meta
 
 PLC_DIRECTORY = getenv("PLC_DIRECTORY_URL") or "https://plc.directory"
 HANDLE_REGEX = r"^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
@@ -255,22 +253,6 @@ async def resolve_authserver_from_pds(
     authserver_url = parsed["authorization_servers"][0]
     kv.set(pds_url, value=authserver_url)
     return AuthserverUrl(authserver_url)
-
-
-async def fetch_authserver_meta(
-    client: ClientSession,
-    authserver_url: str,
-) -> dict[str, str] | None:
-    """Returns metadata from the authserver"""
-
-    assert is_safe_url(authserver_url)
-    endpoint = urljoin(authserver_url, "/.well-known/oauth-authorization-server")
-    response = await client.get(endpoint)
-    if not response.ok:
-        return None
-    meta: dict[str, Any] = await response.json()
-    assert is_valid_authserver_meta(meta, authserver_url)
-    return meta
 
 
 async def get_record(

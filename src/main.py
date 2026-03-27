@@ -3,19 +3,19 @@ import json
 from typing import Any, NamedTuple, cast
 
 from aiohttp.client import ClientSession
-from flask import Flask, g, redirect, render_template, request, session, url_for
-from flask_htmx import HTMX
-from flask_htmx import make_response as htmx_response
-from xrpc import xrpc
-
-from src.atproto import (
+from atproto import (
     get_record,
     is_valid_did,
     resolve_did_from_handle,
     resolve_pds_from_did,
 )
-from src.atproto.oauth import pds_authed_req
-from src.atproto.types import DID, Handle, OAuthSession, PdsUrl
+from atproto.oauth import pds_authed_req
+from atproto.types import DID, Handle, OAuthSession, PdsUrl
+from flask import Flask, g, redirect, render_template, request, session, url_for
+from flask_htmx import HTMX
+from flask_htmx import make_response as htmx_response
+from xrpc import xrpc
+
 from src.auth import (
     get_auth_session,
     refresh_auth_session,

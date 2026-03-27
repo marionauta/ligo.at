@@ -11,11 +11,13 @@ dependencies = [
     "flask-htmx>=0.4.0",
     "flask[async,dotenv]>=3.1.2",
     "gunicorn>=25.0.3",
+    "atproto",
     "ingestor",
     "xrpc",
 ]
 
 [tool.uv.sources]
+atproto = { workspace = true }
 ingestor = { workspace = true }
 xrpc = { workspace = true }
 

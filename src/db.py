@@ -3,10 +3,9 @@ from logging import Logger
 from sqlite3 import Connection
 from typing import Generic, Literal, cast, override
 
+from atproto.kv import KV as BaseKV
+from atproto.kv import K, V
 from flask import Flask, g
-
-from src.atproto.kv import KV as BaseKV
-from src.atproto.kv import K, V
 
 
 class KV(BaseKV, Generic[K, V]):

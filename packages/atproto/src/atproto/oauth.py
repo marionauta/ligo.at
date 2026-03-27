@@ -1,16 +1,16 @@
 import json
 import time
 from typing import Any, Callable, NamedTuple
+from urllib.parse import urljoin
 
 from aiohttp.client import ClientResponse, ClientSession
 from authlib.common.security import generate_token
 from authlib.jose import JsonWebKey, Key, jwt
 from authlib.oauth2.rfc7636 import create_s256_code_challenge
 
-from src.security import hardened_http, is_safe_url
-
-from . import fetch_authserver_meta
+from .security import hardened_http, is_safe_url
 from .types import OAuthAuthRequest, OAuthSession
+from .validator import is_valid_authserver_meta
 
 
 class OAuthTokens(NamedTuple):
@@ -21,6 +21,22 @@ class OAuthTokens(NamedTuple):
     # only for parsing
     token_type: str | None
     expires_in: int | None
+
+
+async def fetch_authserver_meta(
+    client: ClientSession,
+    authserver_url: str,
+) -> dict[str, str] | None:
+    """Returns metadata from the authserver"""
+
+    assert is_safe_url(authserver_url)
+    endpoint = urljoin(authserver_url, "/.well-known/oauth-authorization-server")
+    response = await client.get(endpoint)
+    if not response.ok:
+        return None
+    meta: dict[str, Any] = await response.json()
+    assert is_valid_authserver_meta(meta, authserver_url)
+    return meta
 
 
 # Prepares and sends a pushed auth request (PAR) via HTTP POST to the Authorization Server.
