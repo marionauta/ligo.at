@@ -23,7 +23,7 @@ from src.auth import (
 )
 from src.config import AuthServer, Config
 from src.db import KV, close_db_connection, get_db, init_db
-from src.oauth import oauth
+from src.oauth import oauth, oauth_metadata
 
 app = Flask(__name__)
 _ = app.config.from_prefixed_env()
@@ -272,6 +272,12 @@ async def post_editor_links():
 @app.get("/terms")
 def page_terms():
     return render_template("terms.html")
+
+
+@app.get("/.well-known/oauth-client-metadata.json")
+def well_known_oauth_metadata():
+    response = oauth_metadata()
+    return response, 200, {"Access-Control-Allow-Origin": "*"}
 
 
 class LinkSection(NamedTuple):
