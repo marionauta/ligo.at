@@ -119,6 +119,7 @@ async def oauth_start():
     if resp.status == 400:
         current_app.logger.warning("PAR request returned error 400")
         current_app.logger.warning(await resp.text())
+        await client.close()
         return redirect(url_for("page_login"), 303)
     _ = resp.raise_for_status()
 
