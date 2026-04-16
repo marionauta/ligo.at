@@ -2,9 +2,10 @@
 
 :root {
     --color-alert: #ee0000;
-    --color-background-secondary: #eee;
+    --color-background-secondary: #ececec;
+    --color-background-tertiary: #f9f9f9;
     --color-border: #bbb;
-    --color-border-secondary: #ddd;
+    --color-border-secondary: #cbcbcb;
     --color-success: #080;
     --size-border-radius: 2px;
 }
@@ -12,8 +13,9 @@
 @media (prefers-color-scheme: dark) {
     :root {
         --color-background-secondary: #333;
+        --color-background-tertiary: #222;
         --color-border: #555;
-        --color-border-secondary: #333;
+        --color-border-secondary: #3c3c3c;
         --color-success: #af2;
     }
 }
@@ -58,8 +60,8 @@ h2 {
 
 button,
 input {
-    background: var(--color-background-secondary);
-    border: 1px solid var(--color-border);
+    background: var(--color-background-tertiary);
+    border: 1px solid var(--color-border-secondary);
     border-radius: var(--size-border-radius);
     box-sizing: border-box;
     color: var(--color-text);
@@ -71,6 +73,8 @@ input {
 
 button,
 input[type="submit"] {
+    background: var(--color-background-secondary);
+    border-color: var(--color-border);
     font-weight: 600;
     padding: 0.25em;
 }
@@ -96,11 +100,8 @@ input[type="submit"]:last-of-type {
     margin-top: 0.75em;
 }
 
-.login .authservers button {
-    font-weight: unset;
-}
-
 actor-typeahead {
+    --color-border: var(--color-border-secondary);
     --color-hover: var(--color-background-secondary);
     --padding-menu: 2px;
     --radius: var(--size-border-radius);
