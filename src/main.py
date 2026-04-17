@@ -103,6 +103,7 @@ async def page_profile(atid: str):
     athref = f"at://{did}/at.ligo.actor.links/self"
     return render_template(
         "profile.html",
+        did=did,
         profile=profile,
         sections=link_sections,
         athref=athref,
