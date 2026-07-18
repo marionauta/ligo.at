@@ -1,0 +1,8 @@
+*
+!packages/
+!src/
+!.python-version
+!gunicorn.conf.py
+!pyproject.toml
+!supervisord.conf
+!uv.lock

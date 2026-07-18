@@ -1,0 +1,12 @@
+services:
+  ligoat:
+    build: .
+    image: nauta.one/ligoat
+    container_name: ligoat
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    ports:
+      - 8000:80

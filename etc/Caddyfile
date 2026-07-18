@@ -2,11 +2,13 @@ example.com {
     handle_path /static/* {
         # change this to where you have the code
         root * /var/www/ligoat/src/static
-        file_sever
+        file_server
     }
 
     handle {
         # change this to the port you use
         reverse_proxy :8080
     }
+
+    rewrite /favicon.ico /static/favicon-48.png
 }
