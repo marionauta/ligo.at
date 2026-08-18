@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import sqlite3
+from os import getenv
 
 import dotenv
 from atproto_jetstream import Jetstream, JetstreamCommitEvent, JetstreamOptions
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 async def ingest_jetstream(config: dict[str, str | None]):
     endpoint = "wss://jetstream1.us-east.bsky.network/subscribe"
     options = JetstreamOptions(
-        endpoint=config.get("JETSTREAM_URL") or endpoint,
+        endpoint=read_config(config, key="JETSTREAM_URL", default=endpoint),
         wanted_collections=["at.ligo.*"],
         compress=True,
     )
@@ -56,7 +57,7 @@ def handle_commit(
             (prefix, did),
         )
     else:
-        logger.debug(f"creating or updating {prefix} for {did}")
+        print(f"creating or updating {prefix} for {did}")
         if commit.record["$type"] != type:
             return
         content = json.dumps(commit.record)
@@ -71,8 +72,12 @@ def handle_commit(
 
 
 def get_database(config: dict[str, str | None]) -> sqlite3.Connection | None:
-    database_name = config.get("FLASK_KEYVAL_DB_URL") or "keyval.db"
+    database_name = read_config(config, key="FLASK_KEYVAL_DB_URL", default="keyval.db")
     return sqlite3.connect(database_name)
+
+
+def read_config(config: dict[str, str | None], key: str, default: str) -> str:
+    return config.get(key) or getenv(key) or default
 
 
 async def async_main(config: dict[str, str | None]):
